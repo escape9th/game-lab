@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>守卫 GUARD</title>
 <style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#fff7ef;font-family:"Microsoft YaHei",sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
+  html,body{margin:0;height:100%;overflow:hidden;background:#0a0710;font-family:"Microsoft YaHei",sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
   #cv{display:block;position:fixed;inset:0;image-rendering:pixelated}
-  .overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;z-index:10;background:rgba(255,247,239,.96)}
+  .overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;z-index:10;background:rgba(10,7,16,.96);color:#e5e7eb}
   .hidden{display:none}
-  h1{font-size:44px;margin:0;color:#111;letter-spacing:2px;text-shadow:0 3px 0 #ffd9c2}
-  .sub{color:#6b7280;font-size:14px;line-height:1.8}
-  .sub b{color:#ff0044}
-  button{padding:16px 44px;font-size:19px;border-radius:16px;border:0;background:#111;color:#fff;font-weight:bold;cursor:pointer}
+  h1{font-size:44px;margin:0;color:#fff;letter-spacing:2px;text-shadow:0 3px 0 #5b1020}
+  .sub{color:#94a3b8;font-size:14px;line-height:1.8}
+  .sub b{color:#ff5c85}
+  button{padding:16px 44px;font-size:19px;border-radius:16px;border:0;background:#ff0044;color:#fff;font-weight:bold;cursor:pointer}
   button:active{transform:scale(.96)}
-  .big{font-size:60px;font-weight:bold;color:#ff0044}
+  .big{font-size:60px;font-weight:bold;color:#ff5c85}
 </style>
 </head>
 <body>
@@ -51,7 +51,7 @@ let starName = '小明星';
 let guarded = false;
 let maleRot = -Math.PI / 2;
 let shake = 0, freeze = 0, flash = 0, screenFlash = 0;
-let particles = [], popups = [], drops = [];
+let particles = [], popups = [], drops = [], flyaways = [];
 let spawnTimer = 0, interval = 1.05, t = 0;
 
 // ================= 像素角色渲染 =================
@@ -70,6 +70,7 @@ function drawCharG(g, spec, walkFrame, coatStage){
 
   const hc=spec.hairC||'hairD', oc=spec.oc||'#22c55e';
   const isF=spec.body==='F';
+  const cheer = walkFrame===4;
   const legSwing=(walkFrame===1)?1:(walkFrame===3)?-1:0;
   const armSwing=(walkFrame===1)?2:(walkFrame===3)?-2:0;
   const fat=!!spec.fat;
@@ -83,8 +84,15 @@ function drawCharG(g, spec, walkFrame, coatStage){
   else if(fat){ T(4,24,3,28,19,36,oc); }
   else { T(8,16,10,12,19,33,oc); }
 
-  if(fat){ R(2,20+armSwing,4,12,oc); R(26,20-armSwing,4,12,oc); R(2,32+armSwing,4,3,'skin'); R(26,32-armSwing,4,3,'skin'); }
-  else { R(5,20+armSwing,4,12,oc); R(23,20-armSwing,4,12,oc); R(5,32+armSwing,4,3,'skin'); R(23,32-armSwing,4,3,'skin'); }
+  // 手臂：欢呼 = 双臂上举
+  if(cheer){
+    R(2,12,4,13,oc); R(26,12,4,13,oc);
+    R(2,10,4,3,'skin'); R(26,10,4,3,'skin');
+  } else if(fat){
+    R(2,20+armSwing,4,12,oc); R(26,20-armSwing,4,12,oc); R(2,32+armSwing,4,3,'skin'); R(26,32-armSwing,4,3,'skin');
+  } else {
+    R(5,20+armSwing,4,12,oc); R(23,20-armSwing,4,12,oc); R(5,32+armSwing,4,3,'skin'); R(23,32-armSwing,4,3,'skin');
+  }
 
   R(14,16,4,4,'skin');
   E(16,10,6,7,'skin');
@@ -97,21 +105,20 @@ function drawCharG(g, spec, walkFrame, coatStage){
     case 'curly': hr(9,1,14,4); hr(8,3,2,6); hr(22,3,2,6); S(9,1,hc); S(14,0,hc); S(19,0,hc); S(23,2,hc); break;
   }
 
-  // 五官（厚衣服粉丝第 0~1 阶段戴墨镜）
   if(andro && coatStage<2){ R(11,10,4,2,'#0a0a0a'); R(17,10,4,2,'#0a0a0a'); R(15,10,2,1,'hairD'); }
   else if(spec.acc==='shades'){ R(11,10,4,2,'#0a0a0a'); R(17,10,4,2,'#0a0a0a'); R(15,10,2,1,'hairD'); }
   else { S(13,10,'eye'); S(19,10,'eye'); }
-  R(15,13,3,1,'hairD');
+  // 嘴：欢呼时张嘴
+  if(cheer){ R(14,13,4,2,'#111'); } else { R(15,13,3,1,'hairD'); }
   if(isF){ S(11,12,'#f7a8a0'); S(21,12,'#f7a8a0'); }
 
   if(spec.outfit==='suit'){ R(15,19,2,1,'white'); T(15,2,14,4,20,24,'white'); T(15,1,15,2,24,30,spec.tie||'#2f6bff'); }
   if(spec.acc==='crown'){ R(10,1,12,2,'#f5c211'); S(10,0,'#f5c211'); S(13,0,'#f5c211'); S(16,0,'#f5c211'); S(19,0,'#f5c211'); S(21,0,'#f5c211'); }
 
-  // 厚衣服粉丝：帽子 / 大衣
   if(andro){
-    if(coatStage<1){ R(9,0,14,3,'#111'); R(7,3,18,2,'#111'); }       // 帽子
+    if(coatStage<1){ R(9,0,14,3,'#111'); R(7,3,18,2,'#111'); }
     if(coatStage<3){ const cw = coatStage===0?24: coatStage===1?21: 18;
-      R(16-cw/2,16,cw,25,'#3b2a1a'); R(15,16,2,25,'#251a10'); }      // 大衣
+      R(16-cw/2,16,cw,25,'#3b2a1a'); R(15,16,2,25,'#251a10'); }
   }
 
   const img=g.getImageData(0,0,32,48), d=img.data;
@@ -174,8 +181,7 @@ function drawPixel(spec, x, y, h, walk, coat, ring, alpha){
     ctx.beginPath(); ctx.ellipse(x, y+h*0.46, w*0.62, h*0.13, 0,0,Math.PI*2); ctx.fill();
     ctx.restore();
   }
-  if(alpha!==undefined) ctx.save();
-  if(alpha!==undefined) ctx.globalAlpha=alpha;
+  if(alpha!==undefined){ ctx.save(); ctx.globalAlpha=alpha; }
   ctx.drawImage(img, Math.round(x-w/2), Math.round(y-h/2), Math.round(w), Math.round(h));
   if(alpha!==undefined) ctx.restore();
 }
@@ -196,7 +202,7 @@ function startGame() {
   state = 'playing';
   fans = []; score = 0; wave = 1; guarded = false; maleRot = -Math.PI / 2;
   shake = 0; freeze = 0; flash = 0; screenFlash = 0;
-  particles = []; popups = []; drops = [];
+  particles = []; popups = []; drops = []; flyaways = [];
   spawnTimer = 0.4; interval = 1.05; t = 0;
   document.getElementById('start').classList.add('hidden');
   document.getElementById('over').classList.add('hidden');
@@ -216,13 +222,14 @@ function spawnNormalGroup() {
   const maxN = Math.min(4, 1 + Math.floor(wave / 3));
   const n = 1 + Math.floor(Math.random() * maxN);
   const pool = type === 'male' ? MALES : FEMALES;
-  const baseAngle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
+  const baseAngle = Math.random() * Math.PI * 2;
   for (let i = 0; i < n; i++) {
     fans.push({
       type, angle: baseAngle + (i - (n - 1) / 2) * 0.34,
       dist: spawnR + i * 10,
       speed: 1.4 + Math.min(2.6, score * 0.06) + (wave - 1) * 0.1,
       spec: pool[Math.floor(Math.random() * 4)],
+      phase: Math.random() * 10,
     });
   }
 }
@@ -231,9 +238,10 @@ function spawnFatty() {
   const type = Math.random() < 0.5 ? 'male' : 'female';
   fans.push({
     special: 'fatty', type,
-    angle: -Math.PI / 2 + (Math.random() - 0.5) * 0.8,
+    angle: Math.random() * Math.PI * 2,
     dist: spawnR, speed: 1.1, hits: 0, rolling: false, rollSpeed: 0,
     spec: type === 'male' ? SPEC_FATTY_M : SPEC_FATTY_F,
+    phase: Math.random() * 10,
   });
 }
 function spawnPaparazzi() {
@@ -249,7 +257,7 @@ function spawnAndro() {
   fans.push({
     special: 'andro',
     type: Math.random() < 0.5 ? 'male' : 'female',
-    angle: -Math.PI / 2 + (Math.random() - 0.5) * 1.0,
+    angle: Math.random() * Math.PI * 2,
     dist: spawnR, speed: 1.25, revealed: false, stage: -1,
     spec: SPEC_ANDRO,
   });
@@ -273,13 +281,10 @@ function update(dt) {
   for (let i = fans.length - 1; i >= 0; i--) {
     const f = fans[i];
 
-    // 狗仔：掏相机 → 拍照 → 消失
     if (f.special === 'paparazzi') {
       f.charge += dt;
       if (f.charge > 1.15 && !f.flashed) {
-        f.flashed = true;
-        screenFlash = 0.5;
-        beep(1500, 0.05);
+        f.flashed = true; screenFlash = 0.5; beep(1500, 0.05);
         burst(cx + Math.cos(f.angle) * f.dist, cy + Math.sin(f.angle) * f.dist, '#fff', 20);
       }
       if (f.charge > 1.9) f.leaving = true;
@@ -287,20 +292,34 @@ function update(dt) {
       continue;
     }
 
+    // 胖子回滚：沿路线撞飞粉丝
     if (f.rolling) {
       f.dist += f.rollSpeed * 60 * dt;
-      if (f.dist > spawnR * 1.15) fans.splice(i, 1);
+      const fxp = cx + Math.cos(f.angle) * f.dist, fyp = cy + Math.sin(f.angle) * f.dist;
+      for (let j = fans.length - 1; j >= 0; j--) {
+        const o = fans[j];
+        if (o === f || o.special === 'paparazzi' || o.rolling) continue;
+        const ox = cx + Math.cos(o.angle) * o.dist, oy = cy + Math.sin(o.angle) * o.dist;
+        if (Math.hypot(ox - fxp, oy - fyp) < 30) {
+          flyaways.push({ spec: o.spec || SPEC_PAP, x: ox, y: oy, vx: (ox - cx) * 1.6, vy: -120, life: 1.1 });
+          score++;
+          burst(ox, oy, '#fbbf24', 10);
+          beep(520, 0.03);
+          fans.splice(j, 1);
+        }
+      }
+      if (f.dist > spawnR * 1.2) fans.splice(i, 1);
       continue;
     }
 
     f.dist -= f.speed * 60 * dt;
 
-    // 厚衣服粉丝：逐件掉落（帽子→墨镜→大衣），掉完才露性别
+    // 厚衣服：提前脱完（留足反应时间）
     if (f.special === 'andro') {
       let st;
-      if (f.dist > guardR + 90) st = 0;
-      else if (f.dist > guardR + 60) st = 1;
-      else if (f.dist > guardR + 30) st = 2;
+      if (f.dist > guardR + 200) st = 0;
+      else if (f.dist > guardR + 170) st = 1;
+      else if (f.dist > guardR + 140) st = 2;
       else st = 3;
       if (st !== f.stage) {
         if (f.stage >= 0 && st > f.stage) {
@@ -321,8 +340,7 @@ function update(dt) {
     if (f.dist <= guardR) resolveFan(f);
   }
 
-  let front = -Math.PI / 2;
-  let best = 1e9;
+  let front = -Math.PI / 2, best = 1e9;
   for (const f of fans) {
     if (f.special === 'paparazzi' || f.rolling) continue;
     if (f.dist < best) { best = f.dist; front = f.angle; }
@@ -344,12 +362,9 @@ function update(dt) {
     const p = popups[i]; p.y -= 70 * dt; p.life -= dt;
     if (p.life <= 0) popups.splice(i, 1);
   }
-  // 掉落物：下落 → 弹一下 → 消失
   for (let i = drops.length - 1; i >= 0; i--) {
     const dp = drops[i];
-    dp.vy += 1100 * dt;
-    dp.x += dp.vx * dt;
-    dp.y += dp.vy * dt;
+    dp.vy += 1100 * dt; dp.x += dp.vx * dt; dp.y += dp.vy * dt;
     if (dp.y > dp.ground) {
       dp.y = dp.ground;
       if (!dp.bounced) { dp.vy = -dp.vy * 0.42; dp.bounced = true; }
@@ -357,6 +372,11 @@ function update(dt) {
     }
     dp.life -= dt * 0.6;
     if (dp.life <= 0) drops.splice(i, 1);
+  }
+  for (let i = flyaways.length - 1; i >= 0; i--) {
+    const fa = flyaways[i];
+    fa.vy += 800 * dt; fa.x += fa.vx * dt; fa.y += fa.vy * dt; fa.life -= dt;
+    if (fa.life <= 0) flyaways.splice(i, 1);
   }
 }
 
@@ -369,7 +389,7 @@ function resolveFan(f) {
     if (correct) {
       f.hits++;
       if (f.hits < 3) {
-        f.dist += 110; // 弹得更远
+        f.dist += 110;
         shake = 0.22; flash = 0.2;
         burst(fx, fy, '#f59e0b', 16);
         popup(fx, fy - 30, `弹回 ${f.hits}/3`, '#f59e0b');
@@ -403,22 +423,11 @@ function resolveFan(f) {
 }
 
 function fattyReward(f, fx, fy) {
-  let knocked = 0;
-  for (let j = fans.length - 1; j >= 0; j--) {
-    const o = fans[j];
-    if (o === f || o.special === 'paparazzi' || o.rolling) continue;
-    const da = Math.abs(Math.atan2(Math.sin(o.angle - f.angle), Math.cos(o.angle - f.angle)));
-    if (da < 0.5) {
-      knocked++;
-      burst(cx + Math.cos(o.angle) * o.dist, cy + Math.sin(o.angle) * o.dist, '#fbbf24', 12);
-      fans.splice(j, 1);
-    }
-  }
-  score += knocked + 3;
   f.rolling = true;
   f.rollSpeed = 6;
+  score += 3;
   shake = 0.6; flash = 0.4;
-  popup(fx, fy - 40, knocked > 0 ? `滚回去！撞飞 ${knocked} 个` : '滚回去！', '#f59e0b');
+  popup(fx, fy - 40, '滚回去！', '#f59e0b');
   burst(fx, fy, '#fbbf24', 24);
   beep(300, 0.2);
 }
@@ -438,40 +447,77 @@ function burst(x, y, color, n) {
 }
 function popup(x, y, text, color) { popups.push({ x, y, text, color, life: 0.9 }); }
 
-// ====== 场景 ======
+// ====== 背景（重做：演唱会舞台） ======
 function drawScene() {
-  const g = ctx.createRadialGradient(cx, cy - H * 0.25, 40, cx, cy, Math.max(W, H) * 0.8);
-  g.addColorStop(0, '#fff3e6');
-  g.addColorStop(1, '#f3d3b8');
+  // 深色底
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#1a0f24');
+  g.addColorStop(0.55, '#0f0a16');
+  g.addColorStop(1, '#07050b');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
-  ctx.save();
-  ctx.globalAlpha = 0.2;
-  const lg = ctx.createLinearGradient(cx, 0, cx, cy + guardR);
-  lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, 'rgba(255,255,255,0)');
+  // 左右幕布
+  ctx.fillStyle = '#3d0d1f';
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W * 0.16, 0);
+  ctx.quadraticCurveTo(W * 0.10, H * 0.5, W * 0.16, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(W, 0); ctx.lineTo(W * 0.84, 0);
+  ctx.quadraticCurveTo(W * 0.90, H * 0.5, W * 0.84, H); ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+
+  // 主聚光灯
+  const lg = ctx.createLinearGradient(cx, 0, cx, cy + guardR * 2.2);
+  lg.addColorStop(0, 'rgba(255,240,200,.20)');
+  lg.addColorStop(1, 'rgba(255,240,200,0)');
   ctx.fillStyle = lg;
   ctx.beginPath();
-  ctx.moveTo(cx - 24, 0); ctx.lineTo(cx + 24, 0);
-  ctx.lineTo(cx + guardR * 1.6, cy + guardR); ctx.lineTo(cx - guardR * 1.6, cy + guardR);
+  ctx.moveTo(cx - 26, 0); ctx.lineTo(cx + 26, 0);
+  ctx.lineTo(cx + guardR * 2.4, cy + guardR * 2.2); ctx.lineTo(cx - guardR * 2.4, cy + guardR * 2.2);
   ctx.closePath(); ctx.fill();
-  ctx.restore();
 
-  ctx.save();
-  ctx.globalAlpha = 0.92;
-  ctx.fillStyle = '#c81d3a';
-  ctx.beginPath(); ctx.ellipse(cx, cy + guardR * 1.5, guardR * 2.4, guardR * 0.75, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
-
-  ctx.save();
-  ctx.globalAlpha = 0.2;
-  ctx.fillStyle = '#3b2a2a';
-  for (let i = 0; i < 14; i++) {
-    const px = (W / 14) * (i + 0.5);
-    const py = H - 22 - (i % 3) * 8;
-    ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(px, py + 16, 13, 9, 0, 0, Math.PI * 2); ctx.fill();
+  // 顶部舞台灯排
+  for (let i = 0; i < 9; i++) {
+    const lx = W * 0.2 + (W * 0.6) * i / 8;
+    const col = i % 2 ? 'rgba(251,191,36,.8)' : 'rgba(56,189,248,.7)';
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(lx, 16, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    ctx.beginPath(); ctx.moveTo(lx - 3, 16); ctx.lineTo(lx + 3, 16);
+    ctx.lineTo(lx + 26, H * 0.5); ctx.lineTo(lx - 26, H * 0.5); ctx.closePath();
+    ctx.fillStyle = col; ctx.fill(); ctx.restore();
   }
-  ctx.restore();
+
+  // 红毯（从舞台向下的梯形）
+  const carpetY = cy + guardR * 1.6;
+  ctx.fillStyle = '#8e1229';
+  ctx.beginPath();
+  ctx.moveTo(cx - guardR * 1.1, carpetY);
+  ctx.lineTo(cx + guardR * 1.1, carpetY);
+  ctx.lineTo(cx + W * 0.34, H);
+  ctx.lineTo(cx - W * 0.34, H);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#a3172f';
+  ctx.beginPath();
+  ctx.moveTo(cx - guardR * 0.8, carpetY);
+  ctx.lineTo(cx + guardR * 0.8, carpetY);
+  ctx.lineTo(cx + W * 0.24, H);
+  ctx.lineTo(cx - W * 0.24, H);
+  ctx.closePath(); ctx.fill();
+
+  // 舞台圆形
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  ctx.beginPath(); ctx.ellipse(cx, cy + guardR * 1.6, guardR * 2.2, guardR * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+
+  // 观众 + 手机灯
+  for (let i = 0; i < 16; i++) {
+    const ax = (W / 16) * (i + 0.5) + (i % 3 - 1) * 6;
+    const ay = H - 30 - (i % 2) * 10;
+    ctx.fillStyle = 'rgba(6,4,10,.95)';
+    ctx.beginPath(); ctx.arc(ax, ay, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(ax, ay + 18, 14, 10, 0, 0, Math.PI * 2); ctx.fill();
+    // 手机灯
+    ctx.fillStyle = 'rgba(180,220,255,.55)';
+    ctx.fillRect(ax + 6, ay - 6, 3, 3);
+  }
 }
 
 // ====== 绘制 ======
@@ -497,6 +543,7 @@ function draw() {
   drawGuard(maleRot + Math.PI, 'female');
   for (const f of fans) drawFan(f);
   drawDrops();
+  drawFlyaways();
 
   ctx.restore();
 
@@ -517,7 +564,7 @@ function draw() {
 }
 
 function drawStar() {
-  const h = Math.min(H * 0.13, 100);   // 和保镖同高
+  const h = Math.min(H * 0.13, 100);
   const sy = cy - 6;
   drawPixel(SPEC_STAR, cx, sy, h, 0, 0, null);
   const topY = sy - h * 0.5;
@@ -574,13 +621,12 @@ function drawGuard(angle, type) {
 function drawFan(f) {
   const fx = cx + Math.cos(f.angle) * f.dist;
   const fy = cy + Math.sin(f.angle) * f.dist;
-  const walk = Math.floor(t * 6) % 4;
+  const trot = (Math.floor(t * 8 + (f.phase || 0)) % 2) ? 1 : 3;
 
   if (f.special === 'paparazzi') {
     const h = Math.min(H * 0.1, 76);
     drawPixel(SPEC_PAP, fx, fy, h, 0, 0, null, Math.max(0, f.alpha));
     if (f.alpha <= 0) return;
-    // 掏相机动作：0~0.6s 从口袋移到手
     const cp = Math.min(1, f.charge / 0.6);
     const camX = fx + h * 0.26;
     const camY = fy + h * 0.16 - (h * 0.26) * cp;
@@ -590,18 +636,25 @@ function drawFan(f) {
 
   if (f.special === 'fatty') {
     const h = Math.min(H * 0.15, 112);
-    drawPixel(f.spec, fx, fy, h, 0, 0, '#f59e0b');
-    ctx.fillStyle = '#f59e0b';
-    ctx.font = 'bold 14px "Microsoft YaHei"';
+    const bob = Math.abs(Math.sin(t * 7 + (f.phase || 0))) * 2;
+    drawPixel(f.spec, fx, fy - bob, h, trot, 0, '#f59e0b');
+    // 性别标识
+    ctx.fillStyle = f.type === 'male' ? '#2f6bff' : '#ff0044';
+    ctx.beginPath(); ctx.arc(fx, fy - h * 0.62, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px "Microsoft YaHei"';
     ctx.textAlign = 'center';
-    ctx.fillText('重装 ' + f.hits + '/3', fx, fy - h * 0.55);
+    ctx.fillText(f.type === 'male' ? '♂' : '♀', fx, fy - h * 0.62 + 4);
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = 'bold 13px "Microsoft YaHei"';
+    ctx.fillText('重装 ' + f.hits + '/3', fx, fy - h * 0.75);
     return;
   }
 
   if (f.special === 'andro') {
     const h = Math.min(H * 0.11, 84);
-    const st = f.revealed ? 3 : (f.dist > guardR + 90 ? 0 : f.dist > guardR + 60 ? 1 : f.dist > guardR + 30 ? 2 : 3);
-    drawPixel(SPEC_ANDRO, fx, fy, h, walk, st, null);
+    const st = f.revealed ? 3 : (f.dist > guardR + 200 ? 0 : f.dist > guardR + 170 ? 1 : f.dist > guardR + 140 ? 2 : 3);
+    drawPixel(SPEC_ANDRO, fx, fy, h, trot, st, null);
     if (f.revealed) {
       ctx.fillStyle = f.type === 'male' ? '#2f6bff' : '#ff0044';
       ctx.font = 'bold 13px "Microsoft YaHei"';
@@ -612,44 +665,48 @@ function drawFan(f) {
   }
 
   const h = Math.min(H * 0.11, 84);
-  drawPixel(f.spec, fx, fy, h, walk, 0, f.type === 'male' ? '#2f6bff' : '#ff0044');
+  // 狂热粉丝：一半时间欢呼（双臂上举 + 张嘴），并上下跳
+  const cheer = (Math.floor(t * 6 + (f.phase || 0)) % 3 === 0);
+  const bob = cheer ? -Math.abs(Math.sin(t * 10 + (f.phase || 0))) * 5 : 0;
+  drawPixel(f.spec, fx, fy + bob, h, cheer ? 4 : trot, 0, f.type === 'male' ? '#2f6bff' : '#ff0044');
+  // 欢呼小星星
+  if (cheer) {
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 10px "Microsoft YaHei"';
+    ctx.textAlign = 'center';
+    ctx.fillText('!', fx, fy - h * 0.62 + bob);
+  }
 }
 
 function drawCamera(x, y, s, alpha) {
   ctx.save();
   ctx.globalAlpha = alpha === undefined ? 1 : alpha;
-  ctx.translate(x, y);
-  ctx.scale(s, s);
-  ctx.fillStyle = '#111';
-  ctx.fillRect(-7, -5, 14, 10);
-  ctx.fillStyle = '#333';
-  ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#fbbf24';
-  ctx.fillRect(5, -5, 2, 3);
+  ctx.translate(x, y); ctx.scale(s, s);
+  ctx.fillStyle = '#111'; ctx.fillRect(-7, -5, 14, 10);
+  ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fbbf24'; ctx.fillRect(5, -5, 2, 3);
   ctx.restore();
 }
 
 function drawDrops() {
   for (const d of drops) {
     const a = Math.min(1, d.life * 1.5);
-    ctx.save();
-    ctx.globalAlpha = a;
+    ctx.save(); ctx.globalAlpha = a;
     if (d.kind === 'hat') {
-      ctx.fillStyle = '#111';
-      ctx.fillRect(d.x - 9, d.y - 4, 18, 3);
-      ctx.fillRect(d.x - 6, d.y - 8, 12, 4);
+      ctx.fillStyle = '#111'; ctx.fillRect(d.x - 9, d.y - 4, 18, 3); ctx.fillRect(d.x - 6, d.y - 8, 12, 4);
     } else if (d.kind === 'glasses') {
-      ctx.fillStyle = '#0a0a0a';
-      ctx.fillRect(d.x - 7, d.y - 2, 6, 4);
-      ctx.fillRect(d.x + 1, d.y - 2, 6, 4);
-      ctx.fillRect(d.x - 1, d.y - 1, 2, 2);
+      ctx.fillStyle = '#0a0a0a'; ctx.fillRect(d.x - 7, d.y - 2, 6, 4); ctx.fillRect(d.x + 1, d.y - 2, 6, 4); ctx.fillRect(d.x - 1, d.y - 1, 2, 2);
     } else {
-      ctx.fillStyle = '#3b2a1a';
-      ctx.fillRect(d.x - 8, d.y - 10, 16, 20);
-      ctx.fillStyle = '#251a10';
-      ctx.fillRect(d.x - 1, d.y - 10, 2, 20);
+      ctx.fillStyle = '#3b2a1a'; ctx.fillRect(d.x - 8, d.y - 10, 16, 20);
+      ctx.fillStyle = '#251a10'; ctx.fillRect(d.x - 1, d.y - 10, 2, 20);
     }
     ctx.restore();
+  }
+}
+
+function drawFlyaways() {
+  for (const fa of flyaways) {
+    drawPixel(fa.spec, fa.x, fa.y, Math.min(H * 0.11, 84), 0, 0, null, Math.max(0, Math.min(1, fa.life)));
   }
 }
 
@@ -672,7 +729,7 @@ function drawPopups() {
   ctx.globalAlpha = 1;
 }
 function drawCaption() {
-  ctx.fillStyle = '#111';
+  ctx.fillStyle = '#e5e7eb';
   ctx.font = 'bold 18px "Microsoft YaHei"';
   ctx.textAlign = 'center';
   ctx.fillText(`帮 ${starName} 挡住狂热粉丝`, cx, H * 0.07);
@@ -686,7 +743,7 @@ function drawPrompt() {
   }
   if (!urgent) return;
   const text = urgent.type === 'male' ? 'HOLD for HIM!' : 'RELEASE for HER!';
-  ctx.fillStyle = '#111';
+  ctx.fillStyle = '#fff';
   ctx.font = 'bold 34px "Microsoft YaHei"';
   ctx.textAlign = 'center';
   const bounce = 1 + Math.sin(t * 10) * 0.04;
@@ -699,11 +756,11 @@ function drawPrompt() {
   ctx.fillRect(cx - 90, H * 0.16 + 12, 180, 5);
 }
 function drawScore() {
-  ctx.fillStyle = '#111';
+  ctx.fillStyle = '#fff';
   ctx.font = 'bold 46px "Microsoft YaHei"';
   ctx.textAlign = 'left';
   ctx.fillText(String(score), 24, 60);
-  ctx.fillStyle = '#ff0044';
+  ctx.fillStyle = '#ff5c85';
   ctx.font = 'bold 15px "Microsoft YaHei"';
   ctx.fillText('WAVE ' + wave, 24, 84);
 }
