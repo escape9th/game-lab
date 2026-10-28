@@ -51,6 +51,8 @@ let cx, cy, guardR, spawnR;
 let state = 'ready';
 let fans = [];
 let score = 0, wave = 1;
+let starName = '小明星';   // TODO(抖音): 接入好友列表后替换为随机好友昵称
+let starAvatar = null;     // TODO(抖音): 好友头像 URL / Image
 let guarded = false;
 let maleRot = -Math.PI / 2;
 let shake = 0, freeze = 0, flash = 0;
@@ -112,7 +114,9 @@ function startGame() {
 // 一波 1~3 个同类型粉丝
 function spawnGroup() {
   const type = Math.random() < 0.5 ? 'male' : 'female';
-  const n = 1 + Math.floor(Math.random() * 3);
+  // 难度曲线：波次越高，一波来的粉丝越多（1~5）
+  const maxN = Math.min(5, 1 + Math.floor(wave / 2));
+  const n = 1 + Math.floor(Math.random() * maxN);
   const seed = Math.floor(Math.random() * FAN_POOL.length);
   const baseAngle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
   for (let i = 0; i < n; i++) {
@@ -271,6 +275,7 @@ function draw() {
 
   drawParticles();
   drawPopups();
+  drawCaption();
   drawPrompt();
   drawScore();
 
@@ -285,6 +290,17 @@ function drawStar() {
   const sy = cy - 12;
   drawPeep(STAR, cx, sy, h, null);
   const topY = sy - h * 0.5;
+  // 好友头像占位（未来接抖音好友头像，现用昵称首字占位）
+  const ax = cx - h * 0.36, ay = topY + h * 0.05;
+  ctx.save();
+  ctx.fillStyle = '#38bdf8';
+  ctx.beginPath(); ctx.arc(ax, ay, 18, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 18px "Microsoft YaHei"';
+  ctx.textAlign = 'center';
+  ctx.fillText(starName[0], ax, ay + 6);
+  ctx.restore();
   // 皇冠
   const cw = h * 0.22;
   ctx.save();
@@ -312,7 +328,7 @@ function drawStar() {
   ctx.fillStyle = '#fbbf24';
   ctx.font = 'bold 13px "Microsoft YaHei"';
   ctx.textAlign = 'center';
-  ctx.fillText('★ TOP STAR', cx, sy + h * 0.5 + 18);
+  ctx.fillText('★ ' + starName, cx, sy + h * 0.5 + 18);
 }
 
 function drawGuard(angle, type) {
@@ -347,6 +363,14 @@ function drawPopups() {
     ctx.fillText(p.text, p.x, p.y);
   }
   ctx.globalAlpha = 1;
+}
+
+function drawCaption() {
+  // 「帮 xxx 挡住狂热粉丝」—— 好友昵称未来由抖音好友列表注入
+  ctx.fillStyle = '#111';
+  ctx.font = 'bold 18px "Microsoft YaHei"';
+  ctx.textAlign = 'center';
+  ctx.fillText(`帮 ${starName} 挡住狂热粉丝`, cx, H * 0.07);
 }
 
 function drawPrompt() {
