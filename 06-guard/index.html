@@ -359,7 +359,7 @@ function update(dt) {
     if (fattyRef && f !== fattyRef && !f.special) {
       const fxp = cx + Math.cos(f.angle) * f.dist, fyp = cy + Math.sin(f.angle) * f.dist;
       const ox = cx + Math.cos(fattyRef.angle) * fattyRef.dist, oy = cy + Math.sin(fattyRef.angle) * fattyRef.dist;
-      if (Math.hypot(fxp - ox, fyp - oy) < 34) {
+      if (Math.hypot(fxp - ox, fyp - oy) < 50) {
         knocked.push({ spec: f.spec, x: fxp, y: fyp, vx: (fxp - ox) * 2.2, vy: -220, rot: 0, spin: (Math.random() - 0.5) * 10, life: 1.6, ground: fyp + 26, alpha: 1, landed: false });
         burst(fxp, fyp, '#f59e0b', 8);
         beep(700, 0.03);
@@ -385,6 +385,8 @@ function update(dt) {
       }
       if (st >= 3 && !f.revealed) {
         f.revealed = true;
+        // 脱完之后提速到正常粉丝速度
+        f.speed = 1.4 + Math.min(2.6, score * 0.06) + (wave - 1) * 0.1;
         popup(cx + Math.cos(f.angle) * f.dist, cy + Math.sin(f.angle) * f.dist - 30,
           f.type === 'male' ? '男！' : '女！', f.type === 'male' ? '#2f6bff' : '#ff0044');
       }
