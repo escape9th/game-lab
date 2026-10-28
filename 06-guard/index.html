@@ -273,8 +273,11 @@ function update(dt) {
   if (newWave > wave) { wave = newWave; interval = Math.max(0.55, interval - 0.05); }
 
   spawnTimer -= dt;
-  // 一次只放一波：上一波没清完不再刷，避免多波叠在一起冲线
-  if (spawnTimer <= 0 && fans.length === 0) {
+  let minDist = 1e9;
+  for (const f of fans) { if (f.dist < minDist) minDist = f.dist; }
+  // 折中：允许 2~3 波同时在场，但上一波走过一半才刷下一波，保证到线时间错开
+  const canSpawn = fans.length === 0 || (fans.length <= 4 && minDist < spawnR * 0.55);
+  if (spawnTimer <= 0 && canSpawn) {
     spawnWave();
     spawnTimer = Math.max(0.5, interval - score * 0.008);
   }
