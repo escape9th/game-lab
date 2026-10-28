@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>守卫 GUARD</title>
 <style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#07080d;font-family:"Microsoft YaHei",sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
-  #cv{display:block;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);image-rendering:pixelated;image-rendering:crisp-edges}
-  .overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;z-index:10;background:rgba(7,8,13,.96);color:#e5e7eb}
+  html,body{margin:0;height:100%;overflow:hidden;background:#fff7ef;font-family:"Microsoft YaHei",sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
+  #cv{display:block;position:fixed;inset:0;image-rendering:pixelated}
+  .overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;z-index:10;background:rgba(255,247,239,.96)}
   .hidden{display:none}
-  h1{font-size:40px;margin:0;color:#fff;letter-spacing:2px;text-shadow:0 3px 0 #5b1020}
-  .sub{color:#94a3b8;font-size:13px;line-height:1.9}
-  .sub b{color:#ff5c85}
-  button{padding:14px 40px;font-size:18px;border-radius:14px;border:0;background:#ff0044;color:#fff;font-weight:bold;cursor:pointer}
+  h1{font-size:44px;margin:0;color:#111;letter-spacing:2px;text-shadow:0 3px 0 #ffd9c2}
+  .sub{color:#6b7280;font-size:14px;line-height:1.8}
+  .sub b{color:#ff0044}
+  button{padding:16px 44px;font-size:19px;border-radius:16px;border:0;background:#111;color:#fff;font-weight:bold;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.25)}
   button:active{transform:scale(.96)}
-  .big{font-size:54px;font-weight:bold;color:#ff5c85}
+  .big{font-size:60px;font-weight:bold;color:#ff0044}
 </style>
 </head>
 <body>
@@ -23,7 +23,7 @@
 <div id="start" class="overlay">
   <h1>GUARD!</h1>
   <div class="sub">
-    你的好友在走红毯，粉丝从四面八方冲过来。<br>
+    你是明星的保镖，挡住一波波狂热粉丝。<br>
     <b>按住</b> = 男保镖（挡蓝粉）<br>
     <b>松开</b> = 女保镖（挡红粉）<br>
     挡错 → 闹出绯闻，这些好友可惨了
@@ -41,9 +41,20 @@
 <script>
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
-let GW=210, GH=400, cx, cy, guardR, spawnR;
+let W, H, DPR;
+let cx, cy, guardR, spawnR;
 
-// ================= 像素角色 =================
+let state = 'ready';
+let fans = [];
+let score = 0, wave = 1;
+let starName = '小明星';
+let guarded = false;
+let maleRot = -Math.PI / 2;
+let shake = 0, freeze = 0, flash = 0, screenFlash = 0;
+let particles = [], popups = [];
+let spawnTimer = 0, interval = 1.05, t = 0;
+
+// ================= 像素角色渲染（来自 v7） =================
 const PAL = {
   skin:'#f2c9a0', hairD:'#2b2b2b', hairBr:'#5c3a1e', hairBk:'#111111',
   suit:'#1b1f2a', suitD:'#0e1118', white:'#ffffff', shoe:'#0a0a0a', eye:'#0a0a0a',
@@ -127,7 +138,6 @@ function sprite(key, spec, walk, coat){
   return SCACHE[k];
 }
 
-// ================= 角色表 =================
 const MALES=[
   {key:'m1', body:'M', hair:'short', hairC:'hairD', outfit:'tee', oc:'#16a34a'},
   {key:'m2', body:'M', hair:'curly', hairC:'hairBk', outfit:'tee', oc:'#2563eb'},
@@ -140,272 +150,513 @@ const FEMALES=[
   {key:'f3', body:'F', hair:'curly', hairC:'hairBk', outfit:'dress', oc:'#0d9488'},
   {key:'f4', body:'F', hair:'short', hairC:'hairBr', outfit:'dress', oc:'#ea580c'},
 ];
-const GUARD_M={key:'gm', body:'M', hair:'short', hairC:'hairD', outfit:'suit', oc:'suit', tie:'#2f6bff', acc:'shades'};
-const GUARD_F={key:'gf', body:'F', hair:'long', hairC:'hairBr', outfit:'suit', oc:'suit', tie:'#ff0044', acc:'shades'};
-const STAR   ={key:'star', body:'M', hair:'curly', hairC:'hairBk', outfit:'dress', oc:'#8b5cf6', acc:'crown'};
-const FATTY  ={key:'fatty', body:'M', hair:'bald', hairC:'hairD', outfit:'tee', oc:'#ca8a04', fat:true};
-const PAP    ={key:'pap', body:'M', hair:'short', hairC:'hairD', outfit:'tee', oc:'#374151', acc:'camera'};
-const ANDRO  ={key:'andro', body:'F', hair:'short', hairC:'hairD', outfit:'dress', oc:'#f472b6', acc:'coat', coatC:'#3b2a1a'};
+const SPEC_GUARD_M={key:'gm', body:'M', hair:'short', hairC:'hairD', outfit:'suit', oc:'suit', tie:'#2f6bff', acc:'shades'};
+const SPEC_GUARD_F={key:'gf', body:'F', hair:'long', hairC:'hairBr', outfit:'suit', oc:'suit', tie:'#ff0044', acc:'shades'};
+const SPEC_STAR   ={key:'star', body:'M', hair:'curly', hairC:'hairBk', outfit:'dress', oc:'#8b5cf6'};
+const SPEC_FATTY  ={key:'fatty', body:'M', hair:'bald', hairC:'hairD', outfit:'tee', oc:'#ca8a04', fat:true};
+const SPEC_PAP    ={key:'pap', body:'M', hair:'short', hairC:'hairD', outfit:'tee', oc:'#374151', acc:'camera'};
+const SPEC_ANDRO  ={key:'andro', body:'F', hair:'short', hairC:'hairD', outfit:'dress', oc:'#f472b6', acc:'coat', coatC:'#3b2a1a'};
 
-// ================= 状态 =================
-let state='ready', fans=[], score=0, wave=1;
-let starName='小明星';
-let guarded=false, maleRot=-Math.PI/2;
-let shake=0, freeze=0, flash=0, screenFlash=0;
-let particles=[], popups=[];
-let spawnTimer=0, interval=1.2, t=0;
-
-function resize(){
-  const dpr=Math.min(devicePixelRatio||1,2);
-  const PX=2;
-  const gw=Math.floor(innerWidth/PX), gh=Math.floor(innerHeight/PX);
-  GW=gw; GH=gh;
-  cv.width=gw*PX*dpr; cv.height=gh*PX*dpr;
-  cv.style.width=(gw*PX)+'px'; cv.style.height=(gh*PX)+'px';
-  ctx.setTransform(PX*dpr,0,0,PX*dpr,0,0);
-  ctx.imageSmoothingEnabled=false;
-  cx=GW/2; cy=GH*0.54;
-  guardR=Math.min(GW*0.22, 46);
-  spawnR=Math.min(GW*0.47, GH*0.42);
+// 画像素角色：按 v5 的高度 h 缩放，宽度按 32:48
+function drawPixel(spec, x, y, h, walk, coat, ring){
+  const img=sprite(spec.key, spec, walk||0, coat||0);
+  const w=h*32/48;
+  if(ring){
+    ctx.save(); ctx.globalAlpha=.22; ctx.fillStyle=ring;
+    ctx.beginPath(); ctx.ellipse(x, y+h*0.46, w*0.62, h*0.13, 0,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+  ctx.drawImage(img, Math.round(x-w/2), Math.round(y-h/2), Math.round(w), Math.round(h));
 }
 
-function startGame(){
-  state='playing';
-  fans=[]; score=0; wave=1; guarded=false; maleRot=-Math.PI/2;
-  shake=0; freeze=0; flash=0; screenFlash=0; particles=[]; popups=[];
-  spawnTimer=0.5; interval=1.2; t=0;
+function resize() {
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  cx = W / 2; cy = H * 0.56;
+  guardR = Math.min(W, H) * 0.29;
+  spawnR = Math.min(W, H) * 0.82;
+}
+
+function startGame() {
+  state = 'playing';
+  fans = []; score = 0; wave = 1; guarded = false; maleRot = -Math.PI / 2;
+  shake = 0; freeze = 0; flash = 0; screenFlash = 0;
+  particles = []; popups = [];
+  spawnTimer = 0.4; interval = 1.05; t = 0;
   document.getElementById('start').classList.add('hidden');
   document.getElementById('over').classList.add('hidden');
 }
 
-// ---- 四面随机 ----
-function spawnWave(){
-  const r=Math.random();
-  if(r<0.10){ spawnFatty(); return; }
-  if(r<0.18){ spawnPaparazzi(); return; }
-  if(r<0.28){ spawnAndro(); return; }
+// ====== 生成（v5 数据，随机像素造型） ======
+function spawnWave() {
+  const r = Math.random();
+  if (r < 0.10) { spawnFatty(); return; }
+  if (r < 0.18) { spawnPaparazzi(); return; }
+  if (r < 0.28) { spawnAndro(); return; }
   spawnNormalGroup();
 }
-function rndAngle(){ return Math.random()*Math.PI*2; }
-function spawnNormalGroup(){
-  const type=Math.random()<0.5?'male':'female';
-  const maxN=Math.min(3,1+Math.floor(wave/4));
-  const n=1+Math.floor(Math.random()*maxN);
-  const pool=type==='male'?MALES:FEMALES;
-  const base=rndAngle();
-  for(let i=0;i<n;i++){
-    fans.push({ type, variant:Math.floor(Math.random()*4), pool,
-      angle:base+(i-(n-1)/2)*0.22, dist:spawnR+i*3,
-      speed:0.42+Math.min(0.6,score*0.015)+(wave-1)*0.03, phase:Math.random()*10 });
+
+function spawnNormalGroup() {
+  const type = Math.random() < 0.5 ? 'male' : 'female';
+  const maxN = Math.min(4, 1 + Math.floor(wave / 3));
+  const n = 1 + Math.floor(Math.random() * maxN);
+  const pool = type === 'male' ? MALES : FEMALES;
+  const baseAngle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
+  for (let i = 0; i < n; i++) {
+    fans.push({
+      type, angle: baseAngle + (i - (n - 1) / 2) * 0.34,
+      dist: spawnR + i * 10,
+      speed: 1.4 + Math.min(2.6, score * 0.06) + (wave - 1) * 0.1,
+      spec: pool[Math.floor(Math.random() * 4)],
+    });
   }
 }
-function spawnFatty(){ fans.push({ special:'fatty', type:'male', angle:rndAngle(), dist:spawnR, speed:0.34, hits:0, rolling:false, rollSpeed:0, phase:0 }); }
-function spawnPaparazzi(){ fans.push({ special:'paparazzi', angle:-Math.PI/2+(Math.random()-0.5)*1.4, dist:spawnR*0.95, charge:0, flashed:false }); }
-function spawnAndro(){ fans.push({ special:'andro', type:Math.random()<0.5?'male':'female', angle:rndAngle(), dist:spawnR, speed:0.4, revealed:false, phase:0 }); }
 
-// ---- 更新 ----
-function update(dt){
-  if(state!=='playing') return;
-  t+=dt;
-  if(freeze>0){ freeze-=dt; return; }
-  const nw=1+Math.floor(score/8);
-  if(nw>wave){ wave=nw; interval=Math.max(0.65,interval-0.05); }
+function spawnFatty() {
+  fans.push({
+    special: 'fatty', type: 'male',
+    angle: -Math.PI / 2 + (Math.random() - 0.5) * 0.8,
+    dist: spawnR, speed: 1.1, hits: 0, rolling: false, rollSpeed: 0,
+    spec: SPEC_FATTY,
+  });
+}
+function spawnPaparazzi() {
+  fans.push({
+    special: 'paparazzi',
+    angle: Math.random() * Math.PI * 2,
+    dist: spawnR * 0.9,
+    charge: 0, flashed: false,
+    spec: SPEC_PAP,
+  });
+}
+function spawnAndro() {
+  fans.push({
+    special: 'andro',
+    type: Math.random() < 0.5 ? 'male' : 'female',
+    angle: -Math.PI / 2 + (Math.random() - 0.5) * 1.0,
+    dist: spawnR, speed: 1.25, revealed: false,
+    spec: SPEC_ANDRO,
+  });
+}
 
-  spawnTimer-=dt;
-  if(spawnTimer<=0){ spawnWave(); spawnTimer=Math.max(0.65,interval-score*0.006); }
+// ====== 更新（v5 逻辑） ======
+function update(dt) {
+  if (state !== 'playing') return;
+  t += dt;
+  if (freeze > 0) { freeze -= dt; return; }
 
-  for(let i=fans.length-1;i>=0;i--){
-    const f=fans[i];
-    if(f.special==='paparazzi'){
-      f.charge+=dt;
-      if(f.charge>1.0 && !f.flashed){ f.flashed=true; screenFlash=0.45; beep(1500,0.05);
-        burst(cx+Math.cos(f.angle)*f.dist, cy+Math.sin(f.angle)*f.dist, '#fff', 14); }
-      if(f.charge>2.2) fans.splice(i,1);
+  const newWave = 1 + Math.floor(score / 8);
+  if (newWave > wave) { wave = newWave; interval = Math.max(0.55, interval - 0.05); }
+
+  spawnTimer -= dt;
+  if (spawnTimer <= 0) {
+    spawnWave();
+    spawnTimer = Math.max(0.5, interval - score * 0.008);
+  }
+
+  for (let i = fans.length - 1; i >= 0; i--) {
+    const f = fans[i];
+    if (f.special === 'paparazzi') {
+      f.charge += dt;
+      if (f.charge > 1.0 && !f.flashed) {
+        f.flashed = true;
+        screenFlash = 0.5;
+        beep(1500, 0.05);
+        burst(cx + Math.cos(f.angle) * f.dist, cy + Math.sin(f.angle) * f.dist, '#fff', 20);
+      }
+      if (f.charge > 2.2) fans.splice(i, 1);
       continue;
     }
-    if(f.rolling){ f.dist+=f.rollSpeed*60*dt; if(f.dist>spawnR*1.2) fans.splice(i,1); continue; }
-    f.dist -= f.speed*60*dt;
-    if(f.special==='andro' && !f.revealed && f.dist<=guardR+30) f.revealed=true;
-    if(f.dist<=guardR) resolveFan(f);
+    if (f.rolling) {
+      f.dist += f.rollSpeed * 60 * dt;
+      if (f.dist > spawnR * 1.15) fans.splice(i, 1);
+      continue;
+    }
+    f.dist -= f.speed * 60 * dt;
+    if (f.special === 'andro' && !f.revealed && f.dist <= guardR + 105) {
+      f.revealed = true;
+      popup(cx + Math.cos(f.angle) * f.dist, cy + Math.sin(f.angle) * f.dist - 30,
+        f.type === 'male' ? '男！' : '女！', f.type === 'male' ? '#2f6bff' : '#ff0044');
+    }
+    if (f.dist <= guardR) resolveFan(f);
   }
 
-  let front=-Math.PI/2, best=1e9;
-  for(const f of fans){ if(f.special==='paparazzi'||f.rolling) continue; if(f.dist<best){ best=f.dist; front=f.angle; } }
-  const target=guarded?front:front+Math.PI;
-  const diff=Math.atan2(Math.sin(target-maleRot),Math.cos(target-maleRot));
-  maleRot += diff*Math.min(1,dt*14);
+  let front = -Math.PI / 2;
+  let best = 1e9;
+  for (const f of fans) {
+    if (f.special === 'paparazzi' || f.rolling) continue;
+    if (f.dist < best) { best = f.dist; front = f.angle; }
+  }
+  const target = guarded ? front : front + Math.PI;
+  const diff = Math.atan2(Math.sin(target - maleRot), Math.cos(target - maleRot));
+  maleRot += diff * Math.min(1, dt * 14);
 
-  if(shake>0.001) shake*=Math.pow(0.001,dt); else shake=0;
-  if(flash>0) flash-=dt*3; else flash=0;
-  if(screenFlash>0) screenFlash-=dt; else screenFlash=0;
+  if (shake > 0.001) shake *= Math.pow(0.001, dt); else shake = 0;
+  if (flash > 0) flash -= dt * 3; else flash = 0;
+  if (screenFlash > 0) screenFlash -= dt; else screenFlash = 0;
 
-  for(let i=particles.length-1;i>=0;i--){ const p=particles[i]; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=600*dt; p.life-=dt; if(p.life<=0) particles.splice(i,1); }
-  for(let i=popups.length-1;i>=0;i--){ const p=popups[i]; p.y-=40*dt; p.life-=dt; if(p.life<=0) popups.splice(i,1); }
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 900 * dt; p.life -= dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  for (let i = popups.length - 1; i >= 0; i--) {
+    const p = popups[i]; p.y -= 70 * dt; p.life -= dt;
+    if (p.life <= 0) popups.splice(i, 1);
+  }
 }
 
-function resolveFan(f){
-  const correct=(f.type==='male'&&guarded)||(f.type==='female'&&!guarded);
-  const fx=cx+Math.cos(f.angle)*guardR, fy=cy+Math.sin(f.angle)*guardR;
-  if(f.special==='fatty'){
-    if(correct){
+function resolveFan(f) {
+  const correct = (f.type === 'male' && guarded) || (f.type === 'female' && !guarded);
+  const fx = cx + Math.cos(f.angle) * guardR;
+  const fy = cy + Math.sin(f.angle) * guardR;
+
+  if (f.special === 'fatty') {
+    if (correct) {
       f.hits++;
-      if(f.hits<3){ f.dist+=18; shake=.2; flash=.18; burst(fx,fy,'#f59e0b',12); popup(fx,fy-12,'弹回 '+f.hits+'/3','#f59e0b'); beep(660,0.06); }
-      else fattyReward(f,fx,fy);
-    } else { shake=.35; flash=.25; burst(fx,fy,'#2f6bff',10); beep(200,0.12); const idx=fans.indexOf(f); if(idx>=0) fans.splice(idx,1); }
+      if (f.hits < 3) {
+        f.dist += 55;
+        shake = 0.22; flash = 0.2;
+        burst(fx, fy, '#f59e0b', 16);
+        popup(fx, fy - 30, `弹回 ${f.hits}/3`, '#f59e0b');
+        beep(660, 0.06);
+      } else {
+        fattyReward(f, fx, fy);
+      }
+    } else {
+      shake = 0.4; flash = 0.3;
+      burst(fx, fy, '#2f6bff', 14);
+      beep(200, 0.12);
+      fans.splice(fans.indexOf(f), 1);
+    }
     return;
   }
-  if(correct){
-    score++; burst(fx,fy,f.type==='male'?'#2f6bff':'#ff0044',12); popup(fx,fy-10,'+1','#fff'); shake=.12; flash=.1; beep(f.type==='male'?880:1040,0.04);
+
+  if (correct) {
+    score++;
+    burst(fx, fy, f.type === 'male' ? '#2f6bff' : '#ff0044', 14);
+    popup(fx, fy - 26, '+1', '#111');
+    shake = 0.14; flash = 0.12;
+    beep(f.type === 'male' ? 880 : 1040, 0.04);
   } else {
-    shake=.9; freeze=.4; flash=1; burst(fx,fy,'#ff0044',30); beep(110,0.3); endGame('闹出绯闻了，这些好友可惨了');
+    shake = 1; freeze = 0.4; flash = 1;
+    burst(fx, fy, '#ff0044', 36);
+    beep(110, 0.3);
+    endGame('闹出绯闻了，这些好友可惨了');
   }
-  const idx=fans.indexOf(f); if(idx>=0) fans.splice(idx,1);
+  const idx = fans.indexOf(f);
+  if (idx >= 0) fans.splice(idx, 1);
 }
 
-function fattyReward(f,fx,fy){
-  let knocked=0;
-  for(let j=fans.length-1;j>=0;j--){
-    const o=fans[j]; if(o===f||o.special==='paparazzi'||o.rolling) continue;
-    const da=Math.abs(Math.atan2(Math.sin(o.angle-f.angle),Math.cos(o.angle-f.angle)));
-    if(da<0.5){ knocked++; burst(cx+Math.cos(o.angle)*o.dist,cy+Math.sin(o.angle)*o.dist,'#fbbf24',10); fans.splice(j,1); }
+function fattyReward(f, fx, fy) {
+  let knocked = 0;
+  for (let j = fans.length - 1; j >= 0; j--) {
+    const o = fans[j];
+    if (o === f || o.special === 'paparazzi' || o.rolling) continue;
+    const da = Math.abs(Math.atan2(Math.sin(o.angle - f.angle), Math.cos(o.angle - f.angle)));
+    if (da < 0.5) {
+      knocked++;
+      burst(cx + Math.cos(o.angle) * o.dist, cy + Math.sin(o.angle) * o.dist, '#fbbf24', 12);
+      fans.splice(j, 1);
+    }
   }
-  score+=knocked+3; f.rolling=true; f.rollSpeed=5;
-  shake=.5; flash=.35; popup(fx,fy-16,knocked?`滚回去！撞飞 ${knocked} 个`:'滚回去！','#f59e0b');
-  burst(fx,fy,'#fbbf24',20); beep(300,0.2);
+  score += knocked + 3;
+  f.rolling = true;
+  f.rollSpeed = 6;
+  shake = 0.6; flash = 0.4;
+  popup(fx, fy - 40, knocked > 0 ? `滚回去！撞飞 ${knocked} 个` : '滚回去！', '#f59e0b');
+  burst(fx, fy, '#fbbf24', 24);
+  beep(300, 0.2);
 }
 
-function endGame(reason){
-  state='over';
-  document.getElementById('score').textContent=score;
-  document.getElementById('overSub').textContent=reason||'';
+function endGame(reason) {
+  state = 'over';
+  document.getElementById('score').textContent = score;
+  document.getElementById('overSub').textContent = reason || '';
   document.getElementById('over').classList.remove('hidden');
 }
-function burst(x,y,color,n){ for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2,s=35+Math.random()*80; particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-25,life:.5+Math.random()*.4,color,size:1+Math.random()*1.5}); } }
-function popup(x,y,text,color){ popups.push({x,y,text,color,life:.9}); }
 
-// ---- 背景 ----
-function drawBG(){
-  const g=ctx.createLinearGradient(0,0,0,GH);
-  g.addColorStop(0,'#171126'); g.addColorStop(.55,'#0e0b18'); g.addColorStop(1,'#07080d');
-  ctx.fillStyle=g; ctx.fillRect(0,0,GW,GH);
-
-  for(const dx of [-32,32]){
-    const x=cx+dx;
-    const lg=ctx.createLinearGradient(x,0,x,cy+guardR*1.8);
-    lg.addColorStop(0,'rgba(255,235,190,.13)'); lg.addColorStop(1,'rgba(255,235,190,0)');
-    ctx.fillStyle=lg;
-    ctx.beginPath(); ctx.moveTo(x-8,0); ctx.lineTo(x+8,0); ctx.lineTo(x+60,cy+guardR*1.8); ctx.lineTo(x-60,cy+guardR*1.8); ctx.closePath(); ctx.fill();
+function burst(x, y, color, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, s = 120 + Math.random() * 280;
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 80, life: 0.5 + Math.random() * 0.4, color, size: 2 + Math.random() * 3 });
   }
-  // 红毯
-  ctx.fillStyle='#8e1229';
-  ctx.beginPath(); ctx.ellipse(cx, cy+guardR*1.7, GW*.40, GH*.07, 0,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle='#a3172f';
-  ctx.beginPath(); ctx.ellipse(cx, cy+guardR*1.7, GW*.28, GH*.045, 0,0,Math.PI*2); ctx.fill();
-  // 顶灯
-  for(let i=0;i<7;i++){ ctx.fillStyle=i%2?'rgba(251,191,36,.55)':'rgba(56,189,248,.5)'; ctx.beginPath(); ctx.arc(14+i*(GW-28)/6,6,1.5,0,Math.PI*2); ctx.fill(); }
-  // 观众
-  ctx.fillStyle='rgba(5,5,8,.95)';
-  for(let i=0;i<10;i++){ const x=8+i*(GW-16)/9+(i%3)*3, y=GH-6-(i%2)*3; ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(x,y+8,7,5,0,0,Math.PI*2); ctx.fill(); }
 }
+function popup(x, y, text, color) { popups.push({ x, y, text, color, life: 0.9 }); }
 
-// ---- 画角色 ----
-function put(spec,x,y,scale,walk,coat){
-  const img=sprite(spec.key,spec,walk||0,coat||0);
-  const w=32*scale,h=48*scale;
-  ctx.fillStyle='rgba(0,0,0,.22)';
-  ctx.beginPath(); ctx.ellipse(x, y+h*0.5-2, w*0.4, h*0.07, 0,0,Math.PI*2); ctx.fill();
-  ctx.drawImage(img, Math.round(x-w/2), Math.round(y-h/2), w, h);
-}
-
-function draw(){
-  ctx.clearRect(0,0,GW,GH);
-  drawBG();
+// ====== 场景（v5 不变） ======
+function drawScene() {
+  const g = ctx.createRadialGradient(cx, cy - H * 0.25, 40, cx, cy, Math.max(W, H) * 0.8);
+  g.addColorStop(0, '#fff3e6');
+  g.addColorStop(1, '#f3d3b8');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
   ctx.save();
-  if(shake>0.001){ const s=shake*shake*8; ctx.translate((Math.random()-.5)*s,(Math.random()-.5)*s); }
+  ctx.globalAlpha = 0.2;
+  const lg = ctx.createLinearGradient(cx, 0, cx, cy + guardR);
+  lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = lg;
+  ctx.beginPath();
+  ctx.moveTo(cx - 24, 0); ctx.lineTo(cx + 24, 0);
+  ctx.lineTo(cx + guardR * 1.6, cy + guardR); ctx.lineTo(cx - guardR * 1.6, cy + guardR);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
 
-  // 守卫环（小）
-  ctx.save(); ctx.globalAlpha=.22; ctx.strokeStyle=guarded?'#2f6bff':'#ff0044'; ctx.lineWidth=1.4;
-  ctx.beginPath(); ctx.arc(cx,cy,guardR,0,Math.PI*2); ctx.stroke(); ctx.restore();
+  ctx.save();
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = '#c81d3a';
+  ctx.beginPath(); ctx.ellipse(cx, cy + guardR * 0.95, guardR * 1.55, guardR * 0.48, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 
-  // 明星（中心）
-  put(STAR, cx, cy, 1, 0, 0);
-  ctx.fillStyle='#111'; ctx.fillRect(cx-22, cy+26, 44, 8);
-  ctx.fillStyle='#fbbf24'; ctx.font='bold 6px "Microsoft YaHei"'; ctx.textAlign='center';
-  ctx.fillText('★ '+starName, cx, cy+32);
-  ctx.fillStyle='#38bdf8'; ctx.beginPath(); ctx.arc(cx-26, cy+4, 6, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle='#fff'; ctx.font='bold 7px "Microsoft YaHei"'; ctx.fillText(starName[0], cx-26, cy+7);
-
-  // 守卫（绕明星）
-  const gx=cx+Math.cos(maleRot)*guardR, gy=cy+Math.sin(maleRot)*guardR;
-  const gfx=cx+Math.cos(maleRot+Math.PI)*guardR, gfy=cy+Math.sin(maleRot+Math.PI)*guardR;
-  put(GUARD_M, gx, gy, 1, 1, 0);
-  put(GUARD_F, gfx, gfy, 1, 3, 0);
-
-  // 粉丝 / 特殊
-  for(const f of fans){
-    const x=cx+Math.cos(f.angle)*f.dist, y=cy+Math.sin(f.angle)*f.dist;
-    const walk=Math.floor(t*6+f.phase)%4;
-    if(f.special==='paparazzi'){ put(PAP,x,y,1,0,0); continue; }
-    if(f.special==='fatty'){
-      put(FATTY,x,y,1.3,0,0);
-      ctx.fillStyle='#f59e0b'; ctx.font='bold 7px "Microsoft YaHei"'; ctx.textAlign='center';
-      ctx.fillText('重装 '+f.hits+'/3', x, y-26); continue;
-    }
-    if(f.special==='andro'){
-      let coat=0; if(!f.revealed){ coat = f.dist>guardR+20?0 : f.dist>guardR+10?1 : 2; } else coat=2;
-      put(ANDRO,x,y,1,0,coat);
-      if(f.revealed){ ctx.fillStyle=f.type==='male'?'#2f6bff':'#ff0044'; ctx.font='bold 7px "Microsoft YaHei"'; ctx.textAlign='center'; ctx.fillText(f.type==='male'?'男粉':'女粉',x,y-26); }
-      continue;
-    }
-    put(f.pool[f.variant],x,y,1,walk,0);
-    ctx.fillStyle=f.type==='male'?'#2f6bff':'#ff0044';
-    ctx.beginPath(); ctx.arc(x, y-24, 1.6, 0, Math.PI*2); ctx.fill();
+  ctx.save();
+  ctx.globalAlpha = 0.2;
+  ctx.fillStyle = '#3b2a2a';
+  for (let i = 0; i < 14; i++) {
+    const px = (W / 14) * (i + 0.5);
+    const py = H - 22 - (i % 3) * 8;
+    ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(px, py + 16, 13, 9, 0, 0, Math.PI * 2); ctx.fill();
   }
+  ctx.restore();
+}
+
+// ====== 绘制（v5 布局 + 像素角色） ======
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  drawScene();
+
+  ctx.save();
+  if (shake > 0.001) {
+    const s = shake * shake * 20;
+    ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+  }
+
+  ctx.save();
+  ctx.globalAlpha = 0.32;
+  ctx.strokeStyle = guarded ? '#2f6bff' : '#ff0044';
+  ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.arc(cx, cy, guardR, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+
+  drawStar();
+  drawGuard(maleRot, 'male');
+  drawGuard(maleRot + Math.PI, 'female');
+  for (const f of fans) drawFan(f);
 
   ctx.restore();
 
-  drawParticles(); drawPopups();
-  drawCaption(); drawPrompt(); drawScore();
+  drawParticles();
+  drawPopups();
+  drawCaption();
+  drawPrompt();
+  drawScore();
 
-  if(flash>0){ ctx.fillStyle=`rgba(255,0,68,${Math.min(.3,flash*.3)})`; ctx.fillRect(0,0,GW,GH); }
-  if(screenFlash>0){ ctx.fillStyle=`rgba(255,255,255,${Math.min(.8,screenFlash*1.8)})`; ctx.fillRect(0,0,GW,GH); }
+  if (flash > 0) {
+    ctx.fillStyle = `rgba(255,0,68,${Math.min(0.3, flash * 0.3)})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+  if (screenFlash > 0) {
+    ctx.fillStyle = `rgba(255,255,255,${Math.min(0.97, screenFlash * 2.2)})`;
+    ctx.fillRect(0, 0, W, H);
+  }
 }
 
-function drawParticles(){ for(const p of particles){ ctx.globalAlpha=Math.max(0,Math.min(1,p.life*3)); ctx.fillStyle=p.color; ctx.fillRect(Math.round(p.x),Math.round(p.y),2,2); } ctx.globalAlpha=1; }
-function drawPopups(){ for(const p of popups){ ctx.globalAlpha=Math.max(0,Math.min(1,p.life*3)); ctx.fillStyle=p.color; ctx.font='bold 8px "Microsoft YaHei"'; ctx.textAlign='center'; ctx.fillText(p.text,Math.round(p.x),Math.round(p.y)); } ctx.globalAlpha=1; }
-function drawCaption(){ ctx.fillStyle='#e5e7eb'; ctx.font='bold 7px "Microsoft YaHei"'; ctx.textAlign='center'; ctx.fillText(`帮 ${starName} 挡住狂热粉丝`, cx, 12); }
-function drawPrompt(){
-  if(!fans.length) return;
-  let u=null,best=1e9;
-  for(const f of fans){ if(f.special==='paparazzi'||f.rolling) continue; if(f.dist<best){ best=f.dist; u=f; } }
-  if(!u) return;
-  const text=u.type==='male'?'按住！':'松开！';
-  ctx.fillStyle='#fff'; ctx.font='bold 14px "Microsoft YaHei"'; ctx.textAlign='center';
-  ctx.fillText(text, cx, 30);
-  ctx.fillStyle=u.type==='male'?'#2f6bff':'#ff0044';
-  ctx.fillRect(cx-20, 34, 40, 2);
+function drawStar() {
+  const h = Math.min(H * 0.24, 180);
+  const sy = cy - 12;
+  drawPixel(SPEC_STAR, cx, sy, h, 0, 0, null);
+  const topY = sy - h * 0.5;
+
+  // 好友头像占位
+  const ax = cx - h * 0.36, ay = topY + h * 0.05;
+  ctx.save();
+  ctx.fillStyle = '#38bdf8';
+  ctx.beginPath(); ctx.arc(ax, ay, 18, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 18px "Microsoft YaHei"';
+  ctx.textAlign = 'center';
+  ctx.fillText(starName[0], ax, ay + 6);
+  ctx.restore();
+
+  // 皇冠（v5 的大皇冠）
+  const cw = h * 0.22;
+  ctx.save();
+  ctx.fillStyle = '#f5c211';
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx - cw, topY + h * 0.11);
+  ctx.lineTo(cx - cw * 0.6, topY + h * 0.03);
+  ctx.lineTo(cx - cw * 0.25, topY + h * 0.09);
+  ctx.lineTo(cx, topY + h * 0.01);
+  ctx.lineTo(cx + cw * 0.25, topY + h * 0.09);
+  ctx.lineTo(cx + cw * 0.6, topY + h * 0.03);
+  ctx.lineTo(cx + cw, topY + h * 0.11);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.restore();
+
+  // 麦克风
+  ctx.save();
+  ctx.fillStyle = '#111';
+  ctx.fillRect(cx + h * 0.3, sy - h * 0.1, 3, h * 0.3);
+  ctx.beginPath(); ctx.arc(cx + h * 0.3 + 1.5, sy - h * 0.14, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // 名牌
+  ctx.fillStyle = '#111';
+  ctx.beginPath(); ctx.roundRect(cx - 46, sy + h * 0.5 + 4, 92, 20, 6); ctx.fill();
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = 'bold 13px "Microsoft YaHei"';
+  ctx.textAlign = 'center';
+  ctx.fillText('★ ' + starName, cx, sy + h * 0.5 + 18);
 }
-function drawScore(){ ctx.fillStyle='#fff'; ctx.font='bold 15px "Microsoft YaHei"'; ctx.textAlign='left'; ctx.fillText(String(score), 6, 24); ctx.fillStyle='#ff5c85'; ctx.font='bold 6px "Microsoft YaHei"'; ctx.fillText('WAVE '+wave, 6, 32); }
 
-// ---- 音效 ----
-let audioCtx=null;
-function beep(freq,dur){ try{ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); const o=audioCtx.createOscillator(),g=audioCtx.createGain(); o.frequency.value=freq; o.type='square'; g.gain.value=.03; o.connect(g); g.connect(audioCtx.destination); o.start(); g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur); o.stop(audioCtx.currentTime+dur); }catch(e){} }
+function drawGuard(angle, type) {
+  const gx = cx + Math.cos(angle) * guardR;
+  const gy = cy + Math.sin(angle) * guardR;
+  const h = Math.min(H * 0.13, 100);
+  drawPixel(type === 'male' ? SPEC_GUARD_M : SPEC_GUARD_F, gx, gy, h,
+    type === 'male' ? 1 : 3, 0,
+    type === 'male' ? '#2f6bff' : '#ff0044');
+}
 
-// ---- 输入 ----
-function down(){ if(state==='playing'){ guarded=true; beep(520,.03); } }
-function up(){ if(state==='playing'){ guarded=false; beep(440,.03); } }
-cv.addEventListener('pointerdown',down);
-window.addEventListener('pointerup',up);
-window.addEventListener('pointercancel',up);
+function drawFan(f) {
+  const fx = cx + Math.cos(f.angle) * f.dist;
+  const fy = cy + Math.sin(f.angle) * f.dist;
+  const walk = Math.floor(t * 6) % 4;
 
-// ---- 循环 ----
-let last=performance.now();
-function loop(){ const now=performance.now(); const dt=Math.min(.05,(now-last)/1000); last=now; update(dt); draw(); requestAnimationFrame(loop); }
+  if (f.special === 'paparazzi') {
+    drawPixel(SPEC_PAP, fx, fy, Math.min(H * 0.1, 76), 0, 0, null);
+    return;
+  }
 
-addEventListener('resize',resize);
-document.getElementById('btnStart').onclick=startGame;
-document.getElementById('btnAgain').onclick=startGame;
+  if (f.special === 'fatty') {
+    const h = Math.min(H * 0.15, 112);
+    drawPixel(SPEC_FATTY, fx, fy, h, 0, 0, '#f59e0b');
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = 'bold 14px "Microsoft YaHei"';
+    ctx.textAlign = 'center';
+    ctx.fillText('重装 ' + f.hits + '/3', fx, fy - h * 0.55);
+    return;
+  }
+
+  if (f.special === 'andro' && !f.revealed) {
+    const h = Math.min(H * 0.11, 84);
+    const coat = f.dist > guardR + 70 ? 0 : f.dist > guardR + 35 ? 1 : 2;
+    drawPixel(SPEC_ANDRO, fx, fy, h, 0, coat, null);
+    return;
+  }
+
+  const h = Math.min(H * 0.11, 84);
+  drawPixel(f.spec, fx, fy, h, walk, 0, f.type === 'male' ? '#2f6bff' : '#ff0044');
+  if (f.special === 'andro') {
+    ctx.fillStyle = f.type === 'male' ? '#2f6bff' : '#ff0044';
+    ctx.font = 'bold 13px "Microsoft YaHei"';
+    ctx.textAlign = 'center';
+    ctx.fillText(f.type === 'male' ? '男粉' : '女粉', fx, fy - h * 0.55);
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 3));
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawPopups() {
+  for (const p of popups) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 3));
+    ctx.fillStyle = p.color;
+    ctx.font = 'bold 22px "Microsoft YaHei"';
+    ctx.textAlign = 'center';
+    ctx.fillText(p.text, p.x, p.y);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawCaption() {
+  ctx.fillStyle = '#111';
+  ctx.font = 'bold 18px "Microsoft YaHei"';
+  ctx.textAlign = 'center';
+  ctx.fillText(`帮 ${starName} 挡住狂热粉丝`, cx, H * 0.07);
+}
+
+function drawPrompt() {
+  if (!fans.length) return;
+  let urgent = null;
+  let best = 1e9;
+  for (const f of fans) {
+    if (f.special === 'paparazzi' || f.rolling) continue;
+    if (f.dist < best) { best = f.dist; urgent = f; }
+  }
+  if (!urgent) return;
+  const text = urgent.type === 'male' ? 'HOLD for HIM!' : 'RELEASE for HER!';
+  ctx.fillStyle = '#111';
+  ctx.font = 'bold 34px "Microsoft YaHei"';
+  ctx.textAlign = 'center';
+  const bounce = 1 + Math.sin(t * 10) * 0.04;
+  ctx.save();
+  ctx.translate(cx, H * 0.15);
+  ctx.scale(bounce, bounce);
+  ctx.fillText(text, 0, 0);
+  ctx.restore();
+  ctx.fillStyle = urgent.type === 'male' ? '#2f6bff' : '#ff0044';
+  ctx.fillRect(cx - 90, H * 0.16 + 12, 180, 5);
+}
+
+function drawScore() {
+  ctx.fillStyle = '#111';
+  ctx.font = 'bold 46px "Microsoft YaHei"';
+  ctx.textAlign = 'left';
+  ctx.fillText(String(score), 24, 60);
+  ctx.fillStyle = '#ff0044';
+  ctx.font = 'bold 15px "Microsoft YaHei"';
+  ctx.fillText('WAVE ' + wave, 24, 84);
+}
+
+// ====== 音效 ======
+let audioCtx = null;
+function beep(freq, dur) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.frequency.value = freq; o.type = 'square'; g.gain.value = 0.04;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.stop(audioCtx.currentTime + dur);
+  } catch (e) {}
+}
+
+// ====== 输入 ======
+function pressDown() { if (state === 'playing') { guarded = true; beep(520, 0.03); } }
+function pressUp() { if (state === 'playing') { guarded = false; beep(440, 0.03); } }
+cv.addEventListener('pointerdown', pressDown);
+window.addEventListener('pointerup', pressUp);
+window.addEventListener('pointercancel', pressUp);
+
+// ====== 主循环 ======
+let last = performance.now();
+function loop() {
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+addEventListener('resize', resize);
+document.getElementById('btnStart').onclick = startGame;
+document.getElementById('btnAgain').onclick = startGame;
 resize();
 loop();
 </script>

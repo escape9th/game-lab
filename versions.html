@@ -15,7 +15,8 @@
   .sub{color:var(--dim);font-size:13px;line-height:1.7}
   .item{display:flex;align-items:center;gap:12px;background:linear-gradient(160deg,#16233f,#0e1626);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;text-decoration:none;color:inherit}
   .item:hover{border-color:var(--accent)}
-  .tag{flex:0 0 42px;height:42px;border-radius:10px;background:#1e293b;display:flex;align-items:center;justify-content:center;font-weight:bold;color:#fff;font-size:15px}
+  .item.dead{opacity:.45}
+  .tag{flex:0 0 46px;height:42px;border-radius:10px;background:#1e293b;display:flex;align-items:center;justify-content:center;font-weight:bold;color:#fff;font-size:14px}
   .tag.cur{background:var(--accent);color:#001018}
   .name{font-size:15px;font-weight:bold}
   .desc{font-size:12px;color:var(--dim);margin-top:2px;line-height:1.5}
@@ -28,23 +29,26 @@
 <div class="wrap">
   <header>
     <h1>📚 版本历史 · 06 守卫</h1>
-    <div class="sub">每一版都留着，随时能回看 / 恢复。</div>
+    <div class="sub">v10 = v5 的格局/数据 + v7 的像素角色（当前）</div>
   </header>
 
-  <a class="item" href="versions/v9/">
-    <div class="tag cur">v9</div><div><div class="name">恢复绕圈玩法 + 缩小 + 简化背景</div><div class="desc">当前版本 · 守卫绕明星转，粉丝四面来</div></div><div class="arrow">›</div>
+  <a class="item" href="versions/v10/">
+    <div class="tag cur">v10</div><div><div class="name">v5 格局 + v7 像素</div><div class="desc">当前版本 · 布局/数据/文案全按 v5，人物换成 32×48 像素</div></div><div class="arrow">›</div>
   </a>
-  <a class="item" href="versions/v8/">
-    <div class="tag">v8</div><div><div class="name">纵向布局</div><div class="desc">粉丝上方来、保镖中间挡、明星在下（已废弃的尝试）</div></div><div class="arrow">›</div>
+  <a class="item dead" href="versions/v9/">
+    <div class="tag">v9</div><div><div class="name">恢复绕圈玩法（已废除）</div><div class="desc">用户否决</div></div><div class="arrow">›</div>
+  </a>
+  <a class="item dead" href="versions/v8/">
+    <div class="tag">v8</div><div><div class="name">纵向布局（已废除）</div><div class="desc">用户否决</div></div><div class="arrow">›</div>
   </a>
   <a class="item" href="versions/v7/">
-    <div class="tag">v7</div><div><div class="name">低分辨率锐利画布</div><div class="desc">整数缩放修模糊，四面随机方向</div></div><div class="arrow">›</div>
+    <div class="tag">v7</div><div><div class="name">低分辨率锐利画布</div><div class="desc">像素角色的来源</div></div><div class="arrow">›</div>
   </a>
   <a class="item" href="versions/v6/">
     <div class="tag">v6</div><div><div class="name">32×48 像素角色 + 舞台</div><div class="desc">4男4女 + 保镖 + 明星 + 特殊角色</div></div><div class="arrow">›</div>
   </a>
   <a class="item" href="versions/v5/">
-    <div class="tag">v5</div><div><div class="name">中性文案 + 保镖服 + 特殊敌人</div><div class="desc">闹出绯闻 / 大胖子 / 狗仔 / 厚衣服</div></div><div class="arrow">›</div>
+    <div class="tag">v5</div><div><div class="name">v5 · 最接近满意的一版</div><div class="desc">中性文案 + 保镖服 + 特殊敌人（格局来源）</div></div><div class="arrow">›</div>
   </a>
   <a class="item" href="versions/v4/">
     <div class="tag">v4</div><div><div class="name">好友文案 + 难度曲线</div><div class="desc">「帮 xxx 挡住狂热粉丝」+ 好友头像占位</div></div><div class="arrow">›</div>
