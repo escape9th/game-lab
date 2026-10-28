@@ -51,7 +51,7 @@ let starName = '小明星';
 let guarded = false;
 let maleRot = -Math.PI / 2;
 let shake = 0, freeze = 0, flash = 0, screenFlash = 0;
-let particles = [], popups = [], drops = [], flyaways = [];
+let particles = [], popups = [], drops = [], flyaways = [], knocked = [];
 let tosses = [], splats = [];
 let tossTimer = 2.0;
 let failing = false, failureT = 0;
@@ -238,14 +238,18 @@ function spawnNormalGroup() {
 }
 
 function spawnFatty() {
+  if (fans.some(f => f.special === 'fatty')) return; // 场上最多一个重装
   const type = Math.random() < 0.5 ? 'male' : 'female';
   fans.push({
     special: 'fatty', type,
     angle: -Math.PI / 2 + (Math.random() - 0.5) * 0.8,
-    dist: spawnR, speed: 1.7, hits: 0, rolling: false, rollSpeed: 0,
+    dist: spawnR, speed: 0.6, hits: 0, rolling: false, rollSpeed: 0,
     spec: type === 'male' ? SPEC_FATTY_M : SPEC_FATTY_F,
     phase: Math.random() * 10,
   });
+  // 出场抖屏
+  shake = 0.55; screenFlash = 0.12;
+  beep(90, 0.25);
 }
 function spawnPaparazzi() {
   fans.push({
@@ -310,14 +314,14 @@ function update(dt) {
   spawnTimer -= dt;
   let minDist = 1e9;
   for (const f of fans) { if (f.dist < minDist) minDist = f.dist; }
-  const hasFatty = fans.some(f => f.special === 'fatty');
-  // 重装在场时不刷别的，避免叠波；平时允许 2~3 波错开
-  const canSpawn = !hasFatty && (fans.length === 0 || (fans.length <= 4 && minDist < spawnR * 0.55));
+  // 其他角色照常刷（重装不挡刷新）
+  const canSpawn = fans.length === 0 || (fans.length <= 5 && minDist < spawnR * 0.55);
   if (spawnTimer <= 0 && canSpawn) {
     spawnWave();
     spawnTimer = Math.max(0.5, interval - score * 0.008);
   }
 
+  const fattyRef = fans.find(o => o.special === 'fatty' && !o.rolling);
   for (let i = fans.length - 1; i >= 0; i--) {
     const f = fans[i];
 
@@ -350,6 +354,19 @@ function update(dt) {
     }
 
     f.dist -= f.speed * 60 * dt;
+
+    // 普通粉丝撞到重装 → 弹开摔倒 → 消失
+    if (fattyRef && f !== fattyRef && !f.special) {
+      const fxp = cx + Math.cos(f.angle) * f.dist, fyp = cy + Math.sin(f.angle) * f.dist;
+      const ox = cx + Math.cos(fattyRef.angle) * fattyRef.dist, oy = cy + Math.sin(fattyRef.angle) * fattyRef.dist;
+      if (Math.hypot(fxp - ox, fyp - oy) < 34) {
+        knocked.push({ spec: f.spec, x: fxp, y: fyp, vx: (fxp - ox) * 2.2, vy: -220, rot: 0, spin: (Math.random() - 0.5) * 10, life: 1.6, ground: fyp + 26, alpha: 1, landed: false });
+        burst(fxp, fyp, '#f59e0b', 8);
+        beep(700, 0.03);
+        fans.splice(i, 1);
+        continue;
+      }
+    }
 
     if (f.special === 'andro') {
       let st;
@@ -408,6 +425,18 @@ function update(dt) {
     fa.vy += 800 * dt; fa.x += fa.vx * dt; fa.y += fa.vy * dt; fa.life -= dt;
     if (fa.life <= 0) flyaways.splice(i, 1);
   }
+  // 被撞飞摔倒的粉丝
+  for (let i = knocked.length - 1; i >= 0; i--) {
+    const k = knocked[i];
+    if (!k.landed) {
+      k.vy += 900 * dt; k.x += k.vx * dt; k.y += k.vy * dt; k.rot += k.spin * dt;
+      if (k.y >= k.ground) { k.y = k.ground; k.landed = true; k.life = 0.8; k.rot = k.vx > 0 ? Math.PI / 2 : -Math.PI / 2; }
+    } else {
+      k.life -= dt * 1.4;
+      k.alpha = Math.max(0, k.life / 0.8);
+    }
+    if (k.alpha <= 0) knocked.splice(i, 1);
+  }
 }
 
 function updateParticles(dt) {
@@ -426,8 +455,8 @@ function updateParticles(dt) {
 function updateTosses(dt) {
   tossTimer -= dt;
   if (tossTimer <= 0) {
-    tossTimer = 2.6 + Math.random() * 2.6;
-    const kind = Math.random() < 0.78 ? 'flower' : 'egg';
+    tossTimer = 1.1 + Math.random() * 1.3;
+    const kind = Math.random() < 0.85 ? 'flower' : 'egg';
     const x = W * 0.15 + Math.random() * W * 0.7;
     tosses.push({
       kind, x, y: H - 36,
@@ -446,7 +475,7 @@ function updateTosses(dt) {
     } else {
       // 蛋飞到屏幕中段糊一下
       if (o.vy < 0 && o.y <= H * 0.55) {
-        splats.push({ x: o.x, y: o.y, r: 26 + Math.random() * 22, life: 3.2 });
+        splats.push({ x: o.x, y: o.y, r: 0, targetR: 55 + Math.random() * 45, life: 3.4 });
         beep(180, 0.06);
         tosses.splice(i, 1);
         continue;
@@ -457,8 +486,10 @@ function updateTosses(dt) {
 }
 function updateSplats(dt) {
   for (let i = splats.length - 1; i >= 0; i--) {
-    splats[i].life -= dt;
-    if (splats[i].life <= 0) splats.splice(i, 1);
+    const s = splats[i];
+    s.r = Math.min(s.targetR, s.r + 260 * dt);
+    s.life -= dt;
+    if (s.life <= 0) splats.splice(i, 1);
   }
 }
 
@@ -645,6 +676,7 @@ function draw() {
   for (const f of fans) drawFan(f);
   drawDrops();
   drawFlyaways();
+  drawKnocked();
   drawTosses();
 
   ctx.restore();
@@ -806,6 +838,18 @@ function drawDrops() {
 function drawFlyaways() {
   for (const fa of flyaways) drawPixel(fa.spec, fa.x, fa.y, Math.min(H * 0.11, 84), 0, 0, null, Math.max(0, Math.min(1, fa.life)));
 }
+function drawKnocked() {
+  for (const k of knocked) {
+    const img = sprite(k.spec.key, k.spec, 0, 0);
+    const h = Math.min(H * 0.11, 84), w = h * 32 / 48;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, k.alpha);
+    ctx.translate(k.x, k.y);
+    ctx.rotate(k.rot);
+    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    ctx.restore();
+  }
+}
 
 // 花 / 蛋
 function drawTosses() {
@@ -834,15 +878,21 @@ function drawTosses() {
 // 蛋液糊屏
 function drawSplats() {
   for (const s of splats) {
-    const a = Math.min(0.85, s.life * 0.45);
+    const a = Math.min(0.9, s.life * 0.5);
     ctx.save();
     ctx.globalAlpha = a;
     ctx.fillStyle = '#e8c84a';
     ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#f2dd8a';
-    ctx.beginPath(); ctx.arc(s.x - s.r * 0.3, s.y - s.r * 0.25, s.r * 0.45, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#d4b23e';
-    ctx.beginPath(); ctx.arc(s.x + s.r * 0.35, s.y + s.r * 0.3, s.r * 0.28, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f6e6a0';
+    ctx.beginPath(); ctx.arc(s.x - s.r * 0.3, s.y - s.r * 0.3, s.r * 0.42, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#c9a636';
+    ctx.beginPath(); ctx.arc(s.x + s.r * 0.35, s.y + s.r * 0.35, s.r * 0.3, 0, Math.PI * 2); ctx.fill();
+    // 流下来的蛋液
+    ctx.fillStyle = '#e8c84a';
+    for (let k = 0; k < 4; k++) {
+      const dx = (k - 1.5) * s.r * 0.4;
+      ctx.beginPath(); ctx.ellipse(s.x + dx, s.y + s.r * 0.85, s.r * 0.12, s.r * (0.3 + 0.1 * k), 0, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.restore();
   }
 }
