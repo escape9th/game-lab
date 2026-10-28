@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>热梗工厂</title>
+<style>
+  html,body{margin:0;min-height:100%;background:#070a12;color:#e5e7eb;font-family:"Microsoft YaHei",sans-serif}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle at 50% 20%,#12203a,#05070f 70%);z-index:-1}
+  .wrap{max-width:600px;margin:0 auto;padding:18px 16px 50px;text-align:center}
+  h1{font-size:26px;margin:8px 0 4px}
+  .sub{color:#94a3b8;font-size:12px;line-height:1.6}
+  canvas{width:100%;max-width:540px;border-radius:16px;border:1px solid #1e293b;margin:12px auto;display:block;background:#0b1020}
+  .row{display:flex;gap:8px;justify-content:center;margin:8px 0;flex-wrap:wrap}
+  input[type=text]{flex:1;min-width:120px;padding:11px 13px;font-size:15px;border-radius:12px;border:2px solid #334155;background:#0f172a;color:#fff;box-sizing:border-box}
+  label.file{padding:11px 20px;font-size:15px;border-radius:12px;background:#1f2937;color:#fff;cursor:pointer;font-weight:bold;display:inline-block}
+  input[type=file]{display:none}
+  button{padding:12px 24px;font-size:16px;border-radius:12px;border:0;background:linear-gradient(135deg,#e11d48,#be123c);color:#fff;font-weight:bold;cursor:pointer}
+  button.ghost{background:#1f2937}
+  #toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);background:#111827;border:1px solid #334155;border-radius:999px;padding:8px 16px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:20}
+  #toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🍟 热梗工厂</h1>
+  <div class="sub">上传一张图 → 油炸它 → 配句话 → 下载你的梗图。</div>
+  <canvas id="cv" width="600" height="600"></canvas>
+
+  <div class="row">
+    <label class="file">选一张图<input type="file" id="file" accept="image/*"></label>
+    <button id="btnFry" class="ghost">油炸 ×1</button>
+    <button id="btnDown">下载梗图</button>
+  </div>
+  <div class="row">
+    <input type="text" id="top" placeholder="上文字（可不填）" maxlength="20">
+    <input type="text" id="bottom" placeholder="下文字，比如：就这？" maxlength="20">
+  </div>
+  <div class="sub" style="margin-top:8px;font-size:11px;color:#475569">图片只在本地处理，不上传服务器</div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let img = null, fryLevel = 0;
+
+function render() {
+  ctx.clearRect(0, 0, 600, 600);
+  const bg = ctx.createLinearGradient(0, 0, 0, 600);
+  bg.addColorStop(0, '#0f172a'); bg.addColorStop(1, '#05070f');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, 600, 600);
+
+  if (img) {
+    ctx.save();
+    ctx.filter = fryFilter();
+    const s = Math.max(600 / img.width, 600 / img.height);
+    const w = img.width * s, h = img.height * s;
+    ctx.drawImage(img, (600 - w) / 2, (600 - h) / 2, w, h);
+    ctx.restore();
+    if (fryLevel > 0) addNoise();
+  } else {
+    ctx.fillStyle = '#334155';
+    ctx.font = '26px "Microsoft YaHei"';
+    ctx.textAlign = 'center';
+    ctx.fillText('点上面「选一张图」开始', 300, 300);
+  }
+  drawText();
+}
+
+function fryFilter() {
+  if (fryLevel === 0) return 'none';
+  if (fryLevel === 1) return 'saturate(2.2) contrast(1.3)';
+  if (fryLevel === 2) return 'saturate(3.4) contrast(1.6) brightness(1.05)';
+  return 'saturate(4.5) contrast(2) brightness(1.1) sepia(0.15)';
+}
+
+function addNoise() {
+  const id = ctx.getImageData(0, 0, 600, 600);
+  const d = id.data;
+  const amp = 18 + fryLevel * 14;
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (Math.random() - 0.5) * amp;
+    d[i] += n; d[i + 1] += n; d[i + 2] += n;
+  }
+  ctx.putImageData(id, 0, 0);
+}
+
+function drawText() {
+  const top = document.getElementById('top').value.trim();
+  const bottom = document.getElementById('bottom').value.trim();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  if (top) {
+    ctx.font = 'bold 44px "Microsoft YaHei"';
+    strokeFill(top, 300, 52);
+  }
+  if (bottom) {
+    ctx.font = 'bold 44px "Microsoft YaHei"';
+    strokeFill(bottom, 300, 552);
+  }
+}
+
+function strokeFill(text, x, y) {
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = '#000';
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = '#fff';
+  ctx.fillText(text, x, y);
+}
+
+document.getElementById('file').addEventListener('change', (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const im = new Image();
+    im.onload = () => { img = im; render(); };
+    im.src = reader.result;
+  };
+  reader.readAsDataURL(f);
+});
+
+document.getElementById('btnFry').onclick = () => {
+  fryLevel = (fryLevel + 1) % 5;
+  document.getElementById('btnFry').textContent = fryLevel === 0 ? '油炸 ×1' : `油炸 ×${fryLevel}`;
+  render();
+};
+
+document.getElementById('top').addEventListener('input', render);
+document.getElementById('bottom').addEventListener('input', render);
+
+document.getElementById('btnDown').onclick = () => {
+  const a = document.createElement('a');
+  a.download = '热梗工厂.jpg';
+  a.href = cv.toDataURL('image/jpeg', 0.82);
+  a.click();
+  toast('已保存到下载文件夹');
+};
+
+function toast(m) {
+  const el = document.getElementById('toast');
+  el.textContent = m; el.classList.add('show');
+  clearTimeout(window.__tt); window.__tt = setTimeout(() => el.classList.remove('show'), 1500);
+}
+
+render();
+</script>
+</body>
+</html>

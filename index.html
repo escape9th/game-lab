@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>GameLab · 打开就能玩</title>
+<style>
+  :root{--bg:#070a12;--card:#121a2b;--line:#1e293b;--ink:#e5e7eb;--dim:#94a3b8;--accent:#38bdf8}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:-apple-system,"Microsoft YaHei",sans-serif}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle at 50% -10%,#16233f 0%,#070a12 55%);z-index:-1}
+  .wrap{max-width:920px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 28px) 16px calc(env(safe-area-inset-bottom) + 40px)}
+  header{text-align:center;margin-bottom:26px}
+  h1{font-size:34px;margin:0 0 6px;letter-spacing:1px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--dim);font-size:14px;line-height:1.7}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
+  @media(min-width:640px){.grid{grid-template-columns:repeat(3,1fr)}}
+  a.card{display:block;background:linear-gradient(160deg,#16233f,#0e1626);border:1px solid var(--line);border-radius:18px;padding:16px 14px;text-decoration:none;color:inherit;transition:transform .12s ease,border-color .12s ease;position:relative;overflow:hidden}
+  a.card:active{transform:scale(.97)}
+  a.card:hover{border-color:var(--accent)}
+  .emoji{font-size:30px;line-height:1}
+  .name{font-size:17px;font-weight:bold;margin:8px 0 3px}
+  .desc{font-size:12px;color:var(--dim);line-height:1.5;min-height:36px}
+  .tag{display:inline-block;margin-top:8px;font-size:11px;color:var(--accent);border:1px solid rgba(56,189,248,.35);border-radius:999px;padding:2px 8px}
+  .ad{margin-top:26px;border:1px dashed #2b3a55;border-radius:16px;padding:18px;text-align:center;color:#475569;font-size:12px}
+  footer{margin-top:30px;text-align:center;color:#475569;font-size:12px;line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🎮 Game<span>Lab</span></h1>
+    <div class="sub">打开链接就能玩的小游戏<br>手机 / 电脑都行，一局 10~60 秒</div>
+  </header>
+
+  <div class="grid">
+    <a class="card" href="01-zitou/">
+      <div class="emoji">🀄</div><div class="name">字斗 3D</div>
+      <div class="desc">输入一个字，3D 陀螺对撞</div>
+      <div class="tag">3D · 对战</div>
+    </a>
+    <a class="card" href="02-citybattle/">
+      <div class="emoji">🏙️</div><div class="name">省市对决</div>
+      <div class="desc">选个省，和对手比人口/面积/GDP</div>
+      <div class="tag">数据 · 三局两胜</div>
+    </a>
+    <a class="card" href="03-meme/">
+      <div class="emoji">🍟</div><div class="name">热梗工厂</div>
+      <div class="desc">上传一张图，油炸成梗图</div>
+      <div class="tag">梗图 · 下载</div>
+    </a>
+    <a class="card" href="04-stack/">
+      <div class="emoji">🧱</div><div class="name">堆高高</div>
+      <div class="desc">方块堆塔，完美连击</div>
+      <div class="tag">手速 · 挑战</div>
+    </a>
+    <a class="card" href="05-drawfight/">
+      <div class="emoji">🗡️</div><div class="name">涂鸦刀</div>
+      <div class="desc">画一笔变武器，砍史莱姆</div>
+      <div class="tag">创意 · 砍怪</div>
+    </a>
+    <a class="card" href="06-guard/">
+      <div class="emoji">🛡️</div><div class="name">守卫 GUARD</div>
+      <div class="desc">按住挡男粉，松开挡女粉</div>
+      <div class="tag">节奏 · 反应</div>
+    </a>
+  </div>
+
+  <div class="ad">广告位（以后可接）</div>
+
+  <footer>
+    GameLab · 持续更新中<br>
+    所有游戏均为原创表达，玩法参考公开创意
+  </footer>
+</div>
+</body>
+</html>

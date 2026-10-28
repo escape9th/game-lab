@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>字斗 · 3D 文字陀螺</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0b1020;font-family:"Microsoft YaHei",sans-serif;color:#e5e7eb;touch-action:none}
+  #cv{display:block;position:fixed;inset:0}
+  .panel{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;background:radial-gradient(circle at 50% 30%,#15203a,#05070f 70%);z-index:10}
+  .hidden{display:none}
+  h1{font-size:34px;margin:0;letter-spacing:2px}
+  .sub{color:#94a3b8;font-size:14px;line-height:1.8}
+  input{width:140px;height:90px;font-size:56px;text-align:center;border-radius:18px;border:2px solid #334155;background:#0f172a;color:#fff;outline:none}
+  input:focus{border-color:#38bdf8;box-shadow:0 0 24px rgba(56,189,248,.4)}
+  button{padding:15px 40px;font-size:19px;border-radius:16px;border:0;background:linear-gradient(135deg,#e11d48,#be123c);color:#fff;font-weight:bold;cursor:pointer;box-shadow:0 8px 24px rgba(225,29,72,.35)}
+  button.ghost{background:#1f2937;box-shadow:none}
+  .result{font-size:28px;font-weight:bold;color:#fbbf24}
+  .hint{color:#64748b;font-size:12px;line-height:1.9}
+  #hpbar{position:fixed;left:0;right:0;top:0;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#94a3b8;z-index:5;pointer-events:none}
+  .hpwrap{width:38%;height:10px;background:#1e293b;border-radius:6px;overflow:hidden;margin-top:5px}
+  .hpfill{height:100%;width:100%;border-radius:6px;transition:width .2s}
+  #toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);background:#111827;border:1px solid #334155;border-radius:999px;padding:8px 16px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:20}
+  #toast.show{opacity:1}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hpbar" class="hidden">
+  <div>对手 · <span id="foeName">--</span><div class="hpwrap"><div class="hpfill" id="foeHp" style="background:#fb7185"></div></div></div>
+  <div style="text-align:right">你 · <span id="youName">--</span><div class="hpwrap"><div class="hpfill" id="youHp" style="background:#38bdf8"></div></div></div>
+</div>
+
+<div id="start" class="panel">
+  <h1>🀄 字斗 3D</h1>
+  <div class="sub">输入一个字，它会变成 3D 陀螺上场，<br>在圆台上把对手撞出去。</div>
+  <input id="char" maxlength="1" value="火" autocomplete="off">
+  <button id="btnStart">开战</button>
+  <div class="hint">火=攻击 · 山=防御 · 风=速度 · 水/木=稳<br>点屏幕给陀螺加速</div>
+</div>
+
+<div id="over" class="panel hidden">
+  <div class="result" id="resText"></div>
+  <div class="sub" id="resSub"></div>
+  <button id="btnAgain">再来一局</button>
+  <button id="btnShare" class="ghost">保存对战图</button>
+  <button id="btnBack" class="ghost">换字</button>
+</div>
+
+<div id="toast"></div>
+
+<script type="importmap">
+{ "imports": { "three": "./../libs/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+const cv = document.getElementById('cv');
+const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x070a14);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+camera.position.set(0, 8.5, 9.5);
+camera.lookAt(0, 0, 0);
+
+scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+const dir = new THREE.DirectionalLight(0xffffff, 2.4);
+dir.position.set(6, 12, 8);
+scene.add(dir);
+const rim = new THREE.PointLight(0x38bdf8, 60, 40);
+rim.position.set(-6, 6, -6);
+scene.add(rim);
+
+const ARENA_R = 4.4;
+const arena = new THREE.Mesh(
+  new THREE.CylinderGeometry(ARENA_R, ARENA_R + 0.25, 0.6, 72),
+  new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.35, roughness: 0.55 })
+);
+arena.position.y = -0.3;
+scene.add(arena);
+
+const ring = new THREE.Mesh(
+  new THREE.TorusGeometry(ARENA_R, 0.07, 12, 90),
+  new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0ea5e9, emissiveIntensity: 1.2 })
+);
+ring.rotation.x = Math.PI / 2;
+ring.position.y = 0.02;
+scene.add(ring);
+
+const glow = new THREE.Mesh(
+  new THREE.RingGeometry(ARENA_R * 0.55, ARENA_R * 0.9, 64),
+  new THREE.MeshBasicMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.08, side: THREE.DoubleSide })
+);
+glow.rotation.x = -Math.PI / 2;
+glow.position.y = 0.005;
+scene.add(glow);
+
+function charTexture(ch, colorHex) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = colorHex;
+  g.fillRect(0, 0, 256, 256);
+  g.fillStyle = '#ffffff';
+  g.font = 'bold 172px "Microsoft YaHei", sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(ch, 128, 136);
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+const TRAITS = {
+  fire: ['火','炎','焰','燃','烧','爆','烈'],
+  earth:['山','土','石','岩','岳','峰','地','丘','厚'],
+  wind: ['风','飞','羽','轻','雷','电','快'],
+  water:['水','冰','海','浪','河','江','雨','柔'],
+  metal:['金','铁','钢','刃','刀','剑','锋','锐'],
+  wood: ['木','林','森','竹','草','叶','生'],
+};
+function traitsOf(ch) {
+  const t = { mass: 1, power: 1, speed: 1 };
+  for (const [k, list] of Object.entries(TRAITS)) {
+    if (list.includes(ch)) {
+      if (k === 'earth') t.mass += 0.5;
+      if (k === 'water') t.mass += 0.2;
+      if (k === 'wood') t.mass += 0.2;
+      if (k === 'fire') t.power += 0.35;
+      if (k === 'metal') t.power += 0.3;
+      if (k === 'wind') t.speed += 0.35;
+    }
+  }
+  return t;
+}
+
+const CPU_CHARS = ['山','风','水','雷','石','刃','炎','冰','海','木'];
+let player = null, cpu = null, state = 'start', shake = 0;
+
+function makeTop(ch, isPlayer) {
+  const t = traitsOf(ch);
+  const color = isPlayer ? 0x38bdf8 : 0xfb7185;
+  const colorHex = isPlayer ? '#38bdf8' : '#fb7185';
+  const geo = new THREE.CylinderGeometry(0.8, 0.8, 0.5, 48);
+  const side = new THREE.MeshStandardMaterial({ color, metalness: 0.45, roughness: 0.3 });
+  const top = new THREE.MeshStandardMaterial({ map: charTexture(ch, colorHex), metalness: 0.1, roughness: 0.55 });
+  const bot = new THREE.MeshStandardMaterial({ color });
+  const mesh = new THREE.Mesh(geo, [side, top, bot]);
+  mesh.position.set(0, 0.25, isPlayer ? 2.8 : -2.8);
+  scene.add(mesh);
+  return {
+    mesh, ch, isPlayer, color, colorHex,
+    x: 0, z: isPlayer ? 2.8 : -2.8, vx: 0, vz: 0,
+    hp: 100, mass: t.mass, power: t.power, speed: t.speed,
+    spin: 0, out: false,
+  };
+}
+
+function startGame() {
+  const ch = (document.getElementById('char').value || '火').trim().slice(0, 1) || '火';
+  const cpuCh = CPU_CHARS[Math.floor(Math.random() * CPU_CHARS.length)];
+  if (player) scene.remove(player.mesh);
+  if (cpu) scene.remove(cpu.mesh);
+  player = makeTop(ch, true);
+  cpu = makeTop(cpuCh, false);
+  player.vx = 0; player.vz = 0;
+  cpu.vx = 0; cpu.vz = 0;
+  state = 'battle';
+  shake = 0;
+  document.getElementById('start').classList.add('hidden');
+  document.getElementById('over').classList.add('hidden');
+  document.getElementById('hpbar').classList.remove('hidden');
+  document.getElementById('youName').textContent = ch;
+  document.getElementById('foeName').textContent = cpuCh;
+  updateHp();
+}
+
+function updateHp() {
+  document.getElementById('youHp').style.width = Math.max(0, player.hp) + '%';
+  document.getElementById('foeHp').style.width = Math.max(0, cpu.hp) + '%';
+}
+
+function boost() {
+  if (state !== 'battle') return;
+  const dx = cpu.x - player.x, dz = cpu.z - player.z, d = Math.hypot(dx, dz) || 1;
+  player.vx += dx / d * 0.05;
+  player.vz += dz / d * 0.05;
+  spawnParticles(player.x, player.z, 0x38bdf8, 8);
+}
+
+// ---- particles ----
+const particles = [];
+const pGeo = new THREE.SphereGeometry(0.06, 6, 6);
+function spawnParticles(x, z, color, n) {
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(pGeo, new THREE.MeshBasicMaterial({ color }));
+    m.position.set(x, 0.4, z);
+    scene.add(m);
+    particles.push({
+      mesh: m,
+      vx: (Math.random() - 0.5) * 0.12,
+      vy: Math.random() * 0.12 + 0.04,
+      vz: (Math.random() - 0.5) * 0.12,
+      life: 40,
+    });
+  }
+}
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.mesh.position.x += p.vx;
+    p.mesh.position.y += p.vy;
+    p.mesh.position.z += p.vz;
+    p.vy -= 0.006;
+    p.life--;
+    if (p.life <= 0) { scene.remove(p.mesh); p.mesh.material.dispose(); particles.splice(i, 1); }
+  }
+}
+
+function collide() {
+  const dx = cpu.x - player.x, dz = cpu.z - player.z;
+  const d = Math.hypot(dx, dz);
+  if (d === 0 || d > 1.6) return;
+  const nx = dx / d, nz = dz / d;
+  const overlap = 1.6 - d;
+  player.x -= nx * overlap / 2; player.z -= nz * overlap / 2;
+  cpu.x += nx * overlap / 2; cpu.z += nz * overlap / 2;
+  const rvx = cpu.vx - player.vx, rvz = cpu.vz - player.vz;
+  const va = rvx * nx + rvz * nz;
+  if (va < 0) {
+    const imp = -1.6 * va / 2;
+    player.vx -= imp * nx; player.vz -= imp * nz;
+    cpu.vx += imp * nx; cpu.vz += imp * nz;
+  }
+  const dmg = 5 + 14 * (cpu.power / cpu.mass);
+  player.hp = Math.max(0, player.hp - dmg);
+  cpu.hp = Math.max(0, cpu.hp - (5 + 14 * (player.power / player.mass)));
+  updateHp();
+  shake = 0.22;
+  spawnParticles((player.x + cpu.x) / 2, (player.z + cpu.z) / 2, 0xfbbf24, 14);
+}
+
+function update() {
+  if (state !== 'battle') return;
+  // 互相吸引，保持持续交战（而不是一碰就飞出去）
+  const adx = cpu.x - player.x, adz = cpu.z - player.z;
+  const ad = Math.hypot(adx, adz) || 1;
+  const pull = 0.0045;
+  player.vx += adx / ad * pull; player.vz += adz / ad * pull;
+  cpu.vx -= adx / ad * pull; cpu.vz -= adz / ad * pull;
+  for (const t of [player, cpu]) {
+    t.x += t.vx; t.z += t.vz;
+    t.vx *= 0.982; t.vz *= 0.982;
+    t.spin += 0.16 * (t.isPlayer ? 1 : -1);
+    t.mesh.position.x = t.x;
+    t.mesh.position.z = t.z;
+    t.mesh.rotation.y = t.spin;
+  }
+  collide();
+  if (player.hp <= 0 || cpu.hp <= 0) endGame();
+}
+
+function endGame() {
+  if (state === 'over') return;
+  state = 'over';
+  const win = player.hp > 0 && cpu.hp <= 0;
+  document.getElementById('resText').textContent = win
+    ? `🏆 你的「${player.ch}」赢了「${cpu.ch}」`
+    : `💀 你的「${player.ch}」输给了「${cpu.ch}」`;
+  document.getElementById('resSub').textContent = `HP ${Math.round(player.hp)} : ${Math.round(cpu.hp)}`;
+  document.getElementById('over').classList.remove('hidden');
+  document.getElementById('hpbar').classList.add('hidden');
+  window.__win = win;
+}
+
+function makeShareCard() {
+  const c = document.createElement('canvas');
+  c.width = 600; c.height = 800;
+  const g = c.getContext('2d');
+  const grd = g.createLinearGradient(0, 0, 0, 800);
+  grd.addColorStop(0, '#0b1020'); grd.addColorStop(1, '#1e293b');
+  g.fillStyle = grd; g.fillRect(0, 0, 600, 800);
+  g.fillStyle = '#e5e7eb'; g.font = 'bold 44px "Microsoft YaHei"'; g.textAlign = 'center';
+  g.fillText('字斗 · 3D', 300, 90);
+  g.fillStyle = '#64748b'; g.font = 'bold 40px "Microsoft YaHei"';
+  g.fillText('VS', 300, 300);
+  g.font = 'bold 150px "Microsoft YaHei"';
+  g.fillStyle = '#38bdf8'; g.fillText(player.ch, 130, 330);
+  g.fillStyle = '#fb7185'; g.fillText(cpu.ch, 470, 330);
+  g.fillStyle = window.__win ? '#fbbf24' : '#94a3b8';
+  g.font = 'bold 50px "Microsoft YaHei"';
+  g.fillText(window.__win ? '我赢了！' : '我输了…', 300, 520);
+  g.fillStyle = '#94a3b8'; g.font = '26px "Microsoft YaHei"';
+  g.fillText(`${player.ch}  vs  ${cpu.ch}`, 300, 585);
+  g.fillStyle = '#475569'; g.font = '22px "Microsoft YaHei"';
+  g.fillText('来比比你的字', 300, 740);
+  return c;
+}
+
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+let t0 = performance.now();
+function loop() {
+  const now = performance.now();
+  const dt = Math.min(2, (now - t0) / 16.67);
+  t0 = now;
+  update();
+  updateParticles();
+  // shake
+  if (shake > 0.001) {
+    camera.position.x = (Math.random() - 0.5) * shake;
+    camera.position.y = 8.5 + (Math.random() - 0.5) * shake;
+    shake *= 0.88;
+  } else {
+    camera.position.x = 0; camera.position.y = 8.5;
+  }
+  ring.rotation.z += 0.002;
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+
+addEventListener('resize', resize);
+cv.addEventListener('pointerdown', boost);
+document.getElementById('btnStart').onclick = startGame;
+document.getElementById('btnAgain').onclick = startGame;
+document.getElementById('btnBack').onclick = () => {
+  document.getElementById('over').classList.add('hidden');
+  document.getElementById('start').classList.remove('hidden');
+  state = 'start';
+};
+document.getElementById('btnShare').onclick = () => {
+  const c = makeShareCard();
+  const a = document.createElement('a');
+  a.download = '字斗.png';
+  a.href = c.toDataURL('image/png');
+  a.click();
+  toast('已保存对战图');
+};
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(window.__tt); window.__tt = setTimeout(() => el.classList.remove('show'), 1600);
+}
+
+resize();
+loop();
+</script>
+</body>
+</html>

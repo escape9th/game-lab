@@ -1,0 +1,9 @@
+_shots/
+_shots_mine/
+_study/
+_tools/
+assets/
+*.zip
+*.png
+*.jpg
+!**/thumb*.png

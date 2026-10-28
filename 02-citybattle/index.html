@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>省市对决</title>
+<style>
+  html,body{margin:0;min-height:100%;background:#070a12;color:#e5e7eb;font-family:"Microsoft YaHei",sans-serif;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle at 50% 20%,#12203a,#05070f 70%);z-index:-1}
+  .wrap{max-width:560px;margin:0 auto;padding:22px 18px 60px;text-align:center;position:relative}
+  h1{font-size:30px;margin:6px 0 4px;letter-spacing:2px}
+  .sub{color:#94a3b8;font-size:13px;line-height:1.7}
+  select{padding:13px 18px;font-size:17px;border-radius:14px;border:2px solid #334155;background:#0f172a;color:#fff;margin:16px 0;min-width:210px}
+  button{padding:14px 32px;font-size:18px;border-radius:14px;border:0;background:linear-gradient(135deg,#e11d48,#be123c);color:#fff;font-weight:bold;cursor:pointer;box-shadow:0 8px 24px rgba(225,29,72,.35)}
+  button.ghost{background:#1f2937;box-shadow:none}
+  .hidden{display:none}
+  .cards{display:flex;align-items:center;gap:12px;margin:18px 0}
+  .card{flex:1;background:linear-gradient(160deg,#111c33,#0b1220);border:1px solid #1e293b;border-radius:18px;padding:18px 10px;position:relative;overflow:hidden}
+  .card.you{border-color:#38bdf8;box-shadow:0 0 30px rgba(56,189,248,.15)}
+  .card.foe{border-color:#fb7185;box-shadow:0 0 30px rgba(251,113,133,.15)}
+  .card .who{font-size:12px;color:#94a3b8;letter-spacing:1px}
+  .card .pname{font-size:30px;font-weight:bold;margin:8px 0 2px}
+  .card.you .pname{color:#38bdf8} .card.foe .pname{color:#fb7185}
+  .vs{font-size:18px;font-weight:bold;color:#64748b}
+  .tug{margin:16px 0;opacity:0;transform:translateY(8px);transition:all .35s}
+  .tug.show{opacity:1;transform:none}
+  .tuglabel{display:flex;justify-content:space-between;font-size:13px;color:#94a3b8;margin-bottom:6px}
+  .tugbar{height:22px;border-radius:11px;background:#1e293b;overflow:hidden;display:flex;box-shadow:inset 0 2px 6px rgba(0,0,0,.5)}
+  .tugbar .you{background:linear-gradient(90deg,#0ea5e9,#38bdf8);width:50%;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+  .tugbar .foe{background:linear-gradient(90deg,#fb7185,#e11d48);flex:1;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+  .tugvals{display:flex;justify-content:space-between;font-size:12px;color:#64748b;margin-top:5px}
+  .roundwin.big{font-size:15px;font-weight:bold}
+  .roundwin.you{color:#38bdf8} .roundwin.foe{color:#fb7185}
+  .final{font-size:26px;font-weight:bold;margin:24px 0 8px}
+  .final .win{color:#fbbf24;text-shadow:0 0 24px rgba(251,191,36,.4)}
+  .final .lose{color:#94a3b8}
+  #toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);background:#111827;border:1px solid #334155;border-radius:999px;padding:8px 16px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:20}
+  #toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap" id="start">
+  <h1>🏙️ 省市对决</h1>
+  <div class="sub">选一个省，和随机对手比「人口 / 面积 / GDP」，三局两胜。</div>
+  <select id="sel"></select>
+  <div><button id="btnStart">开战</button></div>
+  <div class="sub" style="margin-top:12px;font-size:11px;color:#475569">数据为公开统计的近似值，仅供娱乐</div>
+</div>
+
+<div class="wrap hidden" id="battle">
+  <div class="cards">
+    <div class="card you"><div class="who">你</div><div class="pname" id="youName">--</div></div>
+    <div class="vs">VS</div>
+    <div class="card foe"><div class="who">对手</div><div class="pname" id="foeName">--</div></div>
+  </div>
+  <div id="tugs"></div>
+  <div class="final hidden" id="final"></div>
+  <div id="actions" class="hidden">
+    <button id="btnAgain">再来一局</button>
+    <button id="btnShare" class="ghost">保存对战图</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const PROVINCES = [
+  {n:'广东', pop:1.27, area:18.0, gdp:13.6}, {n:'江苏', pop:0.85, area:10.7, gdp:12.8},
+  {n:'山东', pop:1.02, area:15.8, gdp:9.2}, {n:'浙江', pop:0.66, area:10.6, gdp:8.2},
+  {n:'河南', pop:0.99, area:16.7, gdp:5.9}, {n:'四川', pop:0.84, area:48.6, gdp:6.0},
+  {n:'湖北', pop:0.58, area:18.6, gdp:5.6}, {n:'湖南', pop:0.66, area:21.2, gdp:5.0},
+  {n:'河北', pop:0.74, area:18.9, gdp:4.4}, {n:'福建', pop:0.42, area:12.4, gdp:5.4},
+  {n:'安徽', pop:0.61, area:14.0, gdp:4.7}, {n:'上海', pop:0.25, area:0.63, gdp:4.7},
+  {n:'北京', pop:0.22, area:1.64, gdp:4.4}, {n:'陕西', pop:0.40, area:20.6, gdp:3.4},
+  {n:'江西', pop:0.45, area:16.7, gdp:3.2}, {n:'重庆', pop:0.32, area:8.2, gdp:3.0},
+  {n:'辽宁', pop:0.42, area:14.8, gdp:3.0}, {n:'云南', pop:0.47, area:39.4, gdp:3.0},
+  {n:'广西', pop:0.50, area:23.8, gdp:2.7}, {n:'山西', pop:0.35, area:15.7, gdp:2.6},
+  {n:'内蒙古', pop:0.24, area:118.3, gdp:2.4}, {n:'贵州', pop:0.39, area:17.6, gdp:2.1},
+  {n:'新疆', pop:0.26, area:166.5, gdp:1.9}, {n:'天津', pop:0.14, area:1.2, gdp:1.6},
+  {n:'黑龙江', pop:0.31, area:47.3, gdp:1.6}, {n:'吉林', pop:0.23, area:18.7, gdp:1.3},
+  {n:'甘肃', pop:0.25, area:42.6, gdp:1.2}, {n:'海南', pop:0.10, area:3.5, gdp:0.76},
+  {n:'宁夏', pop:0.07, area:6.6, gdp:0.53}, {n:'青海', pop:0.06, area:72.2, gdp:0.38},
+  {n:'西藏', pop:0.036, area:122.8, gdp:0.24},
+];
+const DIMS = [
+  {key:'pop', label:'人口', unit:'亿'},
+  {key:'area', label:'面积', unit:'万km²'},
+  {key:'gdp', label:'GDP', unit:'万亿'},
+];
+const sel = document.getElementById('sel');
+PROVINCES.forEach(p => { const o = document.createElement('option'); o.value = p.n; o.textContent = p.n; sel.appendChild(o); });
+sel.value = '广东';
+
+let you = null, foe = null, timers = [];
+
+function pickFoe(exclude) {
+  let p; do { p = PROVINCES[Math.floor(Math.random() * PROVINCES.length)]; } while (p.n === exclude);
+  return p;
+}
+
+function start() {
+  you = PROVINCES.find(p => p.n === sel.value) || PROVINCES[0];
+  foe = pickFoe(you.n);
+  document.getElementById('start').classList.add('hidden');
+  document.getElementById('battle').classList.remove('hidden');
+  document.getElementById('youName').textContent = you.n;
+  document.getElementById('foeName').textContent = foe.n;
+  document.getElementById('final').classList.add('hidden');
+  document.getElementById('actions').classList.add('hidden');
+  document.getElementById('tugs').innerHTML = '';
+  timers.forEach(t => clearTimeout(t)); timers = [];
+  let scoreYou = 0, scoreFoe = 0;
+  DIMS.forEach((dim, i) => {
+    const a = you[dim.key], b = foe[dim.key], total = a + b;
+    const youPct = total > 0 ? (a / total * 100) : 50;
+    const winYou = a > b, winFoe = b > a;
+    const row = document.createElement('div');
+    row.className = 'tug';
+    row.innerHTML = `
+      <div class="tuglabel"><span>${dim.label}</span>
+        <span class="roundwin big ${winYou ? 'you' : (winFoe ? 'foe' : '')}">${winYou ? '你赢' : (winFoe ? '对手赢' : '平')}</span>
+      </div>
+      <div class="tugbar"><div class="you" style="width:0%"></div><div class="foe"></div></div>
+      <div class="tugvals"><span>${you.n} ${a}${dim.unit}</span><span>${foe.n} ${b}${dim.unit}</span></div>`;
+    document.getElementById('tugs').appendChild(row);
+    timers.push(setTimeout(() => {
+      row.classList.add('show');
+      row.querySelector('.you').style.width = youPct.toFixed(1) + '%';
+      if (winYou) scoreYou++; else if (winFoe) scoreFoe++;
+    }, 200 + i * 700));
+  });
+  timers.push(setTimeout(() => showFinal(scoreYou, scoreFoe), 200 + DIMS.length * 700 + 500));
+}
+
+function showFinal(sy, sf) {
+  const win = sy > sf, tie = sy === sf;
+  const el = document.getElementById('final');
+  el.classList.remove('hidden');
+  el.innerHTML = tie
+    ? `⚖️ 平局！<br><span style="font-size:15px;color:#94a3b8">你 ${sy} : ${sf} 对手</span>`
+    : `<span class="${win ? 'win' : 'lose'}">${win ? '🏆 你赢了' : '💀 你输了'}</span><br><span style="font-size:15px;color:#94a3b8">${you.n} ${sy} : ${sf} ${foe.n}</span>`;
+  document.getElementById('actions').classList.remove('hidden');
+  window.__res = { win, tie, sy, sf };
+}
+
+function makeShareCard() {
+  const c = document.createElement('canvas');
+  c.width = 600; c.height = 800;
+  const g = c.getContext('2d');
+  const grd = g.createLinearGradient(0, 0, 0, 800);
+  grd.addColorStop(0, '#0b1020'); grd.addColorStop(1, '#1e293b');
+  g.fillStyle = grd; g.fillRect(0, 0, 600, 800);
+  g.fillStyle = '#e5e7eb'; g.font = 'bold 44px "Microsoft YaHei"'; g.textAlign = 'center';
+  g.fillText('省市对决', 300, 96);
+  g.font = 'bold 60px "Microsoft YaHei"';
+  g.fillStyle = '#38bdf8'; g.fillText(you.n, 150, 280);
+  g.fillStyle = '#fb7185'; g.fillText(foe.n, 450, 280);
+  g.fillStyle = '#64748b'; g.font = 'bold 34px "Microsoft YaHei"'; g.fillText('VS', 300, 260);
+  g.font = '26px "Microsoft YaHei"';
+  DIMS.forEach((dim, i) => {
+    const y = 380 + i * 70;
+    g.fillStyle = '#94a3b8'; g.textAlign = 'left'; g.fillText(dim.label, 90, y);
+    g.textAlign = 'right'; g.fillStyle = '#e5e7eb';
+    g.fillText(`${you[dim.key]}${dim.unit}  :  ${foe[dim.key]}${dim.unit}`, 510, y);
+  });
+  g.textAlign = 'center';
+  g.fillStyle = window.__res.win ? '#fbbf24' : '#94a3b8';
+  g.font = 'bold 52px "Microsoft YaHei"';
+  g.fillText(window.__res.win ? '我赢了！' : (window.__res.tie ? '打平了' : '我输了…'), 300, 640);
+  g.fillStyle = '#475569'; g.font = '22px "Microsoft YaHei"';
+  g.fillText('来比比你的省', 300, 740);
+  return c;
+}
+
+document.getElementById('btnStart').onclick = start;
+document.getElementById('btnAgain').onclick = start;
+document.getElementById('btnShare').onclick = () => {
+  const c = makeShareCard();
+  const a = document.createElement('a');
+  a.download = '省市对决.png'; a.href = c.toDataURL('image/png'); a.click();
+  toast('已保存对战图');
+};
+function toast(m) {
+  const el = document.getElementById('toast');
+  el.textContent = m; el.classList.add('show');
+  clearTimeout(window.__tt); window.__tt = setTimeout(() => el.classList.remove('show'), 1500);
+}
+</script>
+</body>
+</html>
