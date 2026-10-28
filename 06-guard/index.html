@@ -222,7 +222,7 @@ function spawnNormalGroup() {
   const maxN = Math.min(4, 1 + Math.floor(wave / 3));
   const n = 1 + Math.floor(Math.random() * maxN);
   const pool = type === 'male' ? MALES : FEMALES;
-  const baseAngle = Math.random() * Math.PI * 2;
+  const baseAngle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
   for (let i = 0; i < n; i++) {
     fans.push({
       type, angle: baseAngle + (i - (n - 1) / 2) * 0.34,
@@ -238,7 +238,7 @@ function spawnFatty() {
   const type = Math.random() < 0.5 ? 'male' : 'female';
   fans.push({
     special: 'fatty', type,
-    angle: Math.random() * Math.PI * 2,
+    angle: -Math.PI / 2 + (Math.random() - 0.5) * 0.8,
     dist: spawnR, speed: 1.1, hits: 0, rolling: false, rollSpeed: 0,
     spec: type === 'male' ? SPEC_FATTY_M : SPEC_FATTY_F,
     phase: Math.random() * 10,
@@ -257,7 +257,7 @@ function spawnAndro() {
   fans.push({
     special: 'andro',
     type: Math.random() < 0.5 ? 'male' : 'female',
-    angle: Math.random() * Math.PI * 2,
+    angle: -Math.PI / 2 + (Math.random() - 0.5) * 1.0,
     dist: spawnR, speed: 1.25, revealed: false, stage: -1,
     spec: SPEC_ANDRO,
   });
@@ -639,15 +639,16 @@ function drawFan(f) {
     const bob = Math.abs(Math.sin(t * 7 + (f.phase || 0))) * 2;
     drawPixel(f.spec, fx, fy - bob, h, trot, 0, '#f59e0b');
     // 性别标识
+    const badgeY = Math.max(68, fy - h * 0.62);
     ctx.fillStyle = f.type === 'male' ? '#2f6bff' : '#ff0044';
-    ctx.beginPath(); ctx.arc(fx, fy - h * 0.62, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(fx, badgeY, 7, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 10px "Microsoft YaHei"';
     ctx.textAlign = 'center';
-    ctx.fillText(f.type === 'male' ? '♂' : '♀', fx, fy - h * 0.62 + 4);
+    ctx.fillText(f.type === 'male' ? '♂' : '♀', fx, badgeY + 4);
     ctx.fillStyle = '#f59e0b';
     ctx.font = 'bold 13px "Microsoft YaHei"';
-    ctx.fillText('重装 ' + f.hits + '/3', fx, fy - h * 0.75);
+    ctx.fillText('重装 ' + f.hits + '/3', fx, Math.max(84, fy - h * 0.75));
     return;
   }
 
