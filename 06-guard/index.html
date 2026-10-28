@@ -2,17 +2,19 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>守卫 GUARD</title>
 <style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#fff;font-family:"Microsoft YaHei",sans-serif;touch-action:none;user-select:none}
+  html,body{margin:0;height:100%;overflow:hidden;background:#fff7ef;font-family:"Microsoft YaHei",sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
   #cv{display:block;position:fixed;inset:0}
-  .overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;z-index:10;background:rgba(255,255,255,.94)}
+  .overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;z-index:10;background:rgba(255,247,239,.96)}
   .hidden{display:none}
-  h1{font-size:44px;margin:0;color:#111;letter-spacing:2px;text-shadow:0 2px 0 #ddd}
-  .sub{color:#555;font-size:14px;line-height:1.8}
-  button{padding:16px 40px;font-size:19px;border-radius:14px;border:0;background:#111;color:#fff;font-weight:bold;cursor:pointer}
-  .big{font-size:56px;font-weight:bold;color:#ff0044}
+  h1{font-size:46px;margin:0;color:#111;letter-spacing:3px;text-shadow:0 3px 0 #ffd9c2}
+  .sub{color:#6b7280;font-size:14px;line-height:1.9}
+  .sub b{color:#ff0044}
+  button{padding:16px 44px;font-size:19px;border-radius:16px;border:0;background:#111;color:#fff;font-weight:bold;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+  button:active{transform:scale(.96)}
+  .big{font-size:60px;font-weight:bold;color:#ff0044}
   #toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#111;color:#fff;border-radius:999px;padding:8px 16px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:20}
   #toast.show{opacity:1}
 </style>
@@ -23,8 +25,9 @@
 <div id="start" class="overlay">
   <h1>GUARD!</h1>
   <div class="sub">
-    按住 = 男守卫（挡男粉）<br>
-    松开 = 女守卫（挡女粉）<br>
+    你是明星的保镖，挡住疯狂粉丝。<br>
+    <b>按住</b> = 男守卫（挡男粉）<br>
+    <b>松开</b> = 女守卫（挡女粉）<br>
     挡错女粉 → 她起诉骚扰，游戏结束
   </div>
   <button id="btnStart">开始</button>
@@ -47,15 +50,13 @@ let cx, cy, guardR, spawnR;
 
 let state = 'ready';
 let fans = [];
-let score = 0;
-let guarded = false;          // true = 按住(男守卫)
-let maleRot = -Math.PI / 2;   // 男守卫角度
+let score = 0, wave = 1;
+let guarded = false;
+let maleRot = -Math.PI / 2;
 let shake = 0, freeze = 0, flash = 0;
 let particles = [];
 let popups = [];
-let spawnTimer = 0;
-let interval = 1.4;
-let lastFan = null;
+let spawnTimer = 0, interval = 1.25;
 let t = 0;
 
 function resize() {
@@ -64,100 +65,88 @@ function resize() {
   cv.width = W * DPR; cv.height = H * DPR;
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  cx = W / 2; cy = H * 0.55;
-  guardR = Math.min(W, H) * 0.21;
-  spawnR = Math.min(W, H) * 0.78;
+  cx = W / 2; cy = H * 0.56;
+  guardR = Math.min(W, H) * 0.22;
+  spawnR = Math.min(W, H) * 0.8;
 }
 
 function startGame() {
   state = 'playing';
-  fans = []; score = 0; guarded = false; maleRot = -Math.PI / 2;
+  fans = []; score = 0; wave = 1; guarded = false; maleRot = -Math.PI / 2;
   shake = 0; freeze = 0; flash = 0;
   particles = []; popups = [];
-  spawnTimer = 0.6; interval = 1.4; lastFan = null; t = 0;
+  spawnTimer = 0.5; interval = 1.25; t = 0;
   document.getElementById('start').classList.add('hidden');
   document.getElementById('over').classList.add('hidden');
 }
 
 function spawnFan() {
   const type = Math.random() < 0.5 ? 'male' : 'female';
-  const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.6; // 从上方附近来
-  fans.push({ type, angle, dist: spawnR, speed: 0.9 + Math.min(2.2, score * 0.06) });
-  lastFan = fans[fans.length - 1];
+  const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.4;
+  const speed = (1.25 + Math.min(3, score * 0.09)) * (1 + (wave - 1) * 0.15);
+  fans.push({ type, angle, dist: spawnR, speed });
 }
 
 function update(dt) {
   if (state !== 'playing') return;
   t += dt;
-
-  // freeze frames (hit-stop)
   if (freeze > 0) { freeze -= dt; return; }
 
-  // spawn
+  const newWave = 1 + Math.floor(score / 6);
+  if (newWave > wave) { wave = newWave; interval = Math.max(0.55, interval - 0.12); }
+
   spawnTimer -= dt;
   if (spawnTimer <= 0 && fans.length === 0) {
     spawnFan();
-    spawnTimer = Math.max(0.55, interval - score * 0.02);
+    spawnTimer = Math.max(0.45, interval - score * 0.015);
   }
 
-  // move fans
   for (let i = fans.length - 1; i >= 0; i--) {
     const f = fans[i];
     f.dist -= f.speed * 60 * dt;
-    if (f.dist <= guardR) {
-      resolveFan(f);
-      fans.splice(i, 1);
-    }
+    if (f.dist <= guardR) { resolveFan(f); fans.splice(i, 1); }
   }
 
-  // guard rotation toward active fan
   let front = -Math.PI / 2;
   if (fans.length) front = fans[0].angle;
   const target = guarded ? front : front + Math.PI;
   const diff = Math.atan2(Math.sin(target - maleRot), Math.cos(target - maleRot));
-  maleRot += diff * Math.min(1, dt * 12);
+  maleRot += diff * Math.min(1, dt * 14);
 
-  // decay
   if (shake > 0.001) shake *= Math.pow(0.001, dt); else shake = 0;
   if (flash > 0) flash -= dt * 3; else flash = 0;
 
-  // particles
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
-    p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 900 * dt;
-    p.life -= dt;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 900 * dt; p.life -= dt;
     if (p.life <= 0) particles.splice(i, 1);
   }
-  // popups
   for (let i = popups.length - 1; i >= 0; i--) {
-    const p = popups[i];
-    p.y -= 70 * dt; p.life -= dt;
+    const p = popups[i]; p.y -= 70 * dt; p.life -= dt;
     if (p.life <= 0) popups.splice(i, 1);
   }
 }
 
 function resolveFan(f) {
   const correct = (f.type === 'male' && guarded) || (f.type === 'female' && !guarded);
-  const fx = cx + Math.cos(f.angle) * guardR * 0.5;
-  const fy = cy + Math.sin(f.angle) * guardR * 0.5;
+  const fx = cx + Math.cos(f.angle) * guardR;
+  const fy = cy + Math.sin(f.angle) * guardR;
   if (correct) {
     score++;
-    burst(fx, fy, 'male' === f.type ? '#38bdf8' : '#ff0044', 16);
-    popup(fx, fy - 20, '+1', '#111');
-    shake = 0.15; flash = 0.15;
-    beep(880, 0.05);
+    burst(fx, fy, f.type === 'male' ? '#2f6bff' : '#ff0044', 18);
+    popup(fx, fy - 26, '+1', '#111');
+    shake = 0.16; flash = 0.15;
+    beep(f.type === 'male' ? 880 : 1040, 0.05);
   } else {
     if (f.type === 'female') {
-      // 女粉挡错 = 游戏结束
-      shake = 0.9; freeze = 0.35; flash = 1;
-      burst(fx, fy, '#ff0044', 30);
-      beep(120, 0.25);
+      shake = 1; freeze = 0.4; flash = 1;
+      burst(fx, fy, '#ff0044', 36);
+      beep(110, 0.3);
       endGame('她起诉你骚扰了！');
     } else {
-      // 男粉硬闯
-      shake = 0.4; flash = 0.3;
-      burst(fx, fy, '#38bdf8', 12);
-      beep(220, 0.1);
+      shake = 0.45; flash = 0.3;
+      burst(fx, fy, '#2f6bff', 14);
+      beep(200, 0.12);
     }
   }
 }
@@ -171,26 +160,119 @@ function endGame(reason) {
 
 function burst(x, y, color, n) {
   for (let i = 0; i < n; i++) {
-    const a = Math.random() * Math.PI * 2, s = 120 + Math.random() * 260;
+    const a = Math.random() * Math.PI * 2, s = 120 + Math.random() * 280;
     particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 80, life: 0.5 + Math.random() * 0.4, color, size: 2 + Math.random() * 3 });
   }
 }
 function popup(x, y, text, color) { popups.push({ x, y, text, color, life: 0.8 }); }
 
-// ---------- 绘制 ----------
+// ============ 场景 ============
+function drawScene() {
+  const g = ctx.createRadialGradient(cx, cy - H * 0.25, 40, cx, cy, Math.max(W, H) * 0.8);
+  g.addColorStop(0, '#fff3e6');
+  g.addColorStop(1, '#f6d9c2');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  // 聚光灯锥
+  ctx.save();
+  ctx.globalAlpha = 0.18;
+  const lg = ctx.createLinearGradient(cx, 0, cx, cy + guardR);
+  lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = lg;
+  ctx.beginPath();
+  ctx.moveTo(cx - 20, 0); ctx.lineTo(cx + 20, 0);
+  ctx.lineTo(cx + guardR * 1.5, cy + guardR); ctx.lineTo(cx - guardR * 1.5, cy + guardR);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  // 红毯
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = '#c81d3a';
+  ctx.beginPath(); ctx.ellipse(cx, cy + guardR * 0.9, guardR * 1.5, guardR * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // 人群剪影
+  ctx.save();
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = '#3b2a2a';
+  for (let i = 0; i < 14; i++) {
+    const px = (W / 14) * (i + 0.5) + Math.sin(i * 2.1) * 8;
+    const py = H - 18 - (i % 3) * 10;
+    ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(px, py + 16, 13, 9, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ============ 人物 ============
+function drawPerson(x, y, color, opts = {}) {
+  const dress = !!opts.dress;
+  const skin = opts.skin || '#f2c9a0';
+  const hair = opts.hair || '#3b2a1a';
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(opts.scale || 1, opts.scale || 1);
+
+  ctx.fillStyle = 'rgba(0,0,0,.15)';
+  ctx.beginPath(); ctx.ellipse(0, 34, 14, 4, 0, 0, Math.PI * 2); ctx.fill();
+
+  if (!dress) {
+    ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-5, 18); ctx.lineTo(-7, 32); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(5, 18); ctx.lineTo(7, 32); ctx.stroke();
+  }
+
+  if (dress) {
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.moveTo(-10, 2); ctx.lineTo(10, 2); ctx.lineTo(16, 32); ctx.lineTo(-16, 32); ctx.closePath(); ctx.fill();
+  } else {
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.roundRect(-10, 0, 20, 24, 6); ctx.fill();
+  }
+
+  ctx.strokeStyle = color; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-10, 4); ctx.lineTo(-19, 14); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(10, 4); ctx.lineTo(19, 14); ctx.stroke();
+  ctx.fillStyle = skin;
+  ctx.beginPath(); ctx.arc(-19, 14, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(19, 14, 3, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = skin;
+  ctx.beginPath(); ctx.arc(0, -12, 10, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = hair;
+  ctx.beginPath(); ctx.arc(0, -13, 10, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
+  if (opts.longHair) {
+    ctx.beginPath(); ctx.roundRect(-10, -14, 6, 20, 3); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(4, -14, 6, 20, 3); ctx.fill();
+  }
+  ctx.fillStyle = '#111';
+  ctx.beginPath(); ctx.arc(-4, -12, 1.7, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(4, -12, 1.7, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.arc(0, -7, 3.5, 0.15, Math.PI - 0.15); ctx.stroke();
+
+  ctx.restore();
+}
+
+// ============ 绘制 ============
 function draw() {
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, W, H);
+  drawScene();
 
   ctx.save();
   if (shake > 0.001) {
-    const s = shake * shake * 18;
+    const s = shake * shake * 20;
     ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
   }
 
-  drawFloorRing();
-  drawShield();
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.strokeStyle = guarded ? '#2f6bff' : '#ff0044';
+  ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.arc(cx, cy, guardR, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+
   drawVip();
   drawGuard(maleRot, 'male');
   drawGuard(maleRot + Math.PI, 'female');
@@ -204,60 +286,39 @@ function draw() {
   drawScore();
 
   if (flash > 0) {
-    ctx.fillStyle = `rgba(255,0,68,${Math.min(0.35, flash * 0.35)})`;
+    ctx.fillStyle = `rgba(255,0,68,${Math.min(0.3, flash * 0.3)})`;
     ctx.fillRect(0, 0, W, H);
   }
 }
 
-function drawFloorRing() {
-  ctx.save();
-  ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 2;
-  ctx.setLineDash([6, 8]);
-  ctx.beginPath(); ctx.arc(cx, cy, guardR, 0, Math.PI * 2); ctx.stroke();
-  ctx.restore();
-}
-
-function drawShield() {
-  const color = guarded ? '#2f6bff' : '#ff0044';
-  ctx.save();
-  ctx.globalAlpha = 0.4;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 8;
-  ctx.beginPath(); ctx.arc(cx, cy, guardR, 0, Math.PI * 2); ctx.stroke();
-  ctx.restore();
-}
-
 function drawVip() {
-  // 三层叠人（致敬原版：黑帽 / 黄衣国王 / 黑西装）
   const figs = [
-    { y: cy + 44, color: '#111', kind: 'suit' },
-    { y: cy - 18, color: '#f5c211', kind: 'king' },
-    { y: cy - 80, color: '#111', kind: 'hat' },
+    { y: cy + 46, color: '#111', kind: 'suit' },
+    { y: cy - 16, color: '#f5c211', kind: 'king' },
+    { y: cy - 78, color: '#111', kind: 'hat' },
   ];
   for (const f of figs) {
-    // 头
     ctx.fillStyle = '#f2c9a0';
-    ctx.beginPath(); ctx.arc(cx, f.y - 30, 16, 0, Math.PI * 2); ctx.fill();
-    // 身体
+    ctx.beginPath(); ctx.arc(cx, f.y - 32, 16, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = f.color;
-    ctx.beginPath(); ctx.roundRect(cx - 22, f.y - 10, 44, 48, 10); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(cx - 22, f.y - 12, 44, 48, 10); ctx.fill();
     if (f.kind === 'suit') {
       ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.moveTo(cx, f.y - 8); ctx.lineTo(cx - 9, f.y + 12); ctx.lineTo(cx + 9, f.y + 12); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(cx, f.y - 10); ctx.lineTo(cx - 9, f.y + 12); ctx.lineTo(cx + 9, f.y + 12); ctx.closePath(); ctx.fill();
     }
     if (f.kind === 'hat') {
       ctx.fillStyle = '#111';
-      ctx.beginPath(); ctx.roundRect(cx - 26, f.y - 48, 52, 10, 3); ctx.fill();
-      ctx.beginPath(); ctx.roundRect(cx - 16, f.y - 62, 32, 16, 3); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(cx - 26, f.y - 50, 52, 10, 3); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(cx - 16, f.y - 64, 32, 16, 3); ctx.fill();
     }
     if (f.kind === 'king') {
       ctx.fillStyle = '#111';
       ctx.beginPath();
-      ctx.moveTo(cx - 16, f.y - 46); ctx.lineTo(cx - 10, f.y - 58); ctx.lineTo(cx - 4, f.y - 46);
-      ctx.lineTo(cx + 2, f.y - 58); ctx.lineTo(cx + 8, f.y - 46); ctx.lineTo(cx + 14, f.y - 58);
-      ctx.lineTo(cx + 14, f.y - 44); ctx.lineTo(cx - 16, f.y - 44); ctx.closePath(); ctx.fill();
+      ctx.moveTo(cx - 16, f.y - 48); ctx.lineTo(cx - 10, f.y - 62); ctx.lineTo(cx - 4, f.y - 48);
+      ctx.lineTo(cx + 2, f.y - 62); ctx.lineTo(cx + 8, f.y - 48); ctx.lineTo(cx + 14, f.y - 62);
+      ctx.lineTo(cx + 14, f.y - 46); ctx.lineTo(cx - 16, f.y - 46); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#f5c211';
-      ctx.beginPath(); ctx.roundRect(cx + 18, f.y - 52, 8, 32, 4); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(cx + 18, f.y - 54, 8, 34, 4); ctx.fill();
     }
   }
 }
@@ -265,42 +326,15 @@ function drawVip() {
 function drawGuard(angle, type) {
   const gx = cx + Math.cos(angle) * guardR;
   const gy = cy + Math.sin(angle) * guardR;
-  const color = type === 'male' ? '#2f6bff' : '#ff0044';
-  ctx.save();
-  ctx.translate(gx, gy);
-  // 小人
-  ctx.fillStyle = color;
-  // 头
-  ctx.beginPath(); ctx.arc(0, -18, 10, 0, Math.PI * 2); ctx.fill();
-  // 身体
-  ctx.beginPath(); ctx.roundRect(-9, -6, 18, 22, 5); ctx.fill();
-  // 四肢
-  ctx.strokeStyle = color; ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.moveTo(-9, 2); ctx.lineTo(-20, -6); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(9, 2); ctx.lineTo(20, -6); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(-4, 16); ctx.lineTo(-8, 30); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(4, 16); ctx.lineTo(8, 30); ctx.stroke();
-  // 女：裙子
-  if (type === 'female') {
-    ctx.fillStyle = color;
-    ctx.beginPath(); ctx.moveTo(-10, 10); ctx.lineTo(10, 10); ctx.lineTo(16, 32); ctx.lineTo(-16, 32); ctx.closePath(); ctx.fill();
-  }
-  ctx.restore();
+  if (type === 'male') drawPerson(gx, gy, '#2f6bff', { hair: '#1f2937' });
+  else drawPerson(gx, gy, '#ff0044', { dress: true, hair: '#4a2a1a', longHair: true });
 }
 
 function drawFan(f) {
   const fx = cx + Math.cos(f.angle) * f.dist;
   const fy = cy + Math.sin(f.angle) * f.dist;
-  const color = f.type === 'male' ? '#2f6bff' : '#ff0044';
-  ctx.save();
-  ctx.translate(fx, fy);
-  ctx.fillStyle = color;
-  ctx.beginPath(); ctx.arc(0, -10, 8, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.roundRect(-7, 0, 14, 18, 4); ctx.fill();
-  if (f.type === 'female') {
-    ctx.beginPath(); ctx.moveTo(-8, 8); ctx.lineTo(8, 8); ctx.lineTo(12, 24); ctx.lineTo(-12, 24); ctx.closePath(); ctx.fill();
-  }
-  ctx.restore();
+  if (f.type === 'male') drawPerson(fx, fy, '#2f6bff', { scale: 0.9, hair: '#1f2937' });
+  else drawPerson(fx, fy, '#ff0044', { scale: 0.9, dress: true, hair: '#4a2a1a', longHair: true });
 }
 
 function drawParticles() {
@@ -316,7 +350,7 @@ function drawPopups() {
   for (const p of popups) {
     ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 3));
     ctx.fillStyle = p.color;
-    ctx.font = 'bold 22px "Microsoft YaHei"';
+    ctx.font = 'bold 24px "Microsoft YaHei"';
     ctx.textAlign = 'center';
     ctx.fillText(p.text, p.x, p.y);
   }
@@ -332,7 +366,7 @@ function drawPrompt() {
   ctx.textAlign = 'center';
   const bounce = 1 + Math.sin(t * 10) * 0.04;
   ctx.save();
-  ctx.translate(cx, H * 0.18);
+  ctx.translate(cx, H * 0.16);
   ctx.scale(bounce, bounce);
   ctx.fillText(text, 0, 0);
   ctx.restore();
@@ -343,18 +377,19 @@ function drawScore() {
   ctx.font = 'bold 46px "Microsoft YaHei"';
   ctx.textAlign = 'left';
   ctx.fillText(String(score), 24, 60);
+  ctx.fillStyle = '#ff0044';
+  ctx.font = 'bold 15px "Microsoft YaHei"';
+  ctx.fillText('WAVE ' + wave, 24, 84);
 }
 
-// ---------- 音效 ----------
+// ============ 音效 ============
 let audioCtx = null;
 function beep(freq, dur) {
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const o = audioCtx.createOscillator();
     const g = audioCtx.createGain();
-    o.frequency.value = freq;
-    o.type = 'square';
-    g.gain.value = 0.04;
+    o.frequency.value = freq; o.type = 'square'; g.gain.value = 0.04;
     o.connect(g); g.connect(audioCtx.destination);
     o.start();
     g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
@@ -362,15 +397,14 @@ function beep(freq, dur) {
   } catch (e) {}
 }
 
-// ---------- 输入 ----------
+// ============ 输入 ============
 function pressDown() { if (state === 'playing') { guarded = true; beep(520, 0.03); } }
 function pressUp() { if (state === 'playing') { guarded = false; beep(440, 0.03); } }
-
 cv.addEventListener('pointerdown', pressDown);
 window.addEventListener('pointerup', pressUp);
-cv.addEventListener('pointercancel', pressUp);
+window.addEventListener('pointercancel', pressUp);
 
-// ---------- 主循环 ----------
+// ============ 主循环 ============
 let last = performance.now();
 function loop() {
   const now = performance.now();
