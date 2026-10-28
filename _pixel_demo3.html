@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pixel Art v3 · 角色系统</title>
+<style>
+  body{margin:0;background:#0a0c14;color:#e5e7eb;font-family:"Microsoft YaHei",monospace;display:flex;flex-direction:column;align-items:center;padding:12px}
+  h2{font-size:15px;margin:2px 0 6px;font-weight:normal;color:#94a3b8}
+  canvas{image-rendering:pixelated;border-radius:12px}
+  .legend{font-size:11px;color:#64748b;margin-top:8px;text-align:center;line-height:1.9}
+</style>
+</head>
+<body>
+<h2>PIXEL ART v3 · 32×48 · 舞台 · 4男4女 · 特殊角色</h2>
+<canvas id="cv" width="760" height="720"></canvas>
+<div class="legend">上：4 男粉 / 4 女粉　中：男保镖 · 女保镖 · 明星　下：大胖子 · 狗仔 · 厚衣服粉丝（三帧脱外套）</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+const PAL = {
+  skin:'#f2c9a0', skinL:'#ffe0c0', skinD:'#c99a70',
+  hairD:'#2b2b2b', hairBr:'#5c3a1e', hairBk:'#111111',
+  suit:'#1b1f2a', suitD:'#0e1118', white:'#ffffff',
+  shoe:'#0a0a0a', eye:'#0a0a0a',
+};
+function C(k){ return PAL[k] || k; }
+
+function drawCharG(g, spec, frame){
+  const S=(x,y,c)=>{g.fillStyle=C(c);g.fillRect(x,y,1,1);};
+  const R=(x,y,w,h,c)=>{g.fillStyle=C(c);g.fillRect(x,y,w,h);};
+  const E=(cx,cy,rx,ry,c)=>{g.fillStyle=C(c);for(let y=-ry;y<=ry;y++)for(let x=-rx;x<=rx;x++){if((x*x)/(rx*rx)+(y*y)/(ry*ry)<=1)g.fillRect(cx+x,cy+y,1,1);}};
+  const T=(xT,wT,xB,wB,yT,yB,c)=>{g.fillStyle=C(c);for(let y=yT;y<=yB;y++){const t=(y-yT)/Math.max(1,yB-yT);const x=Math.round(xT+(xB-xT)*t),w=Math.round(wT+(wB-wT)*t);g.fillRect(x,y,w,1);}};
+  const skin=spec.skin||'skin', hc=spec.hairC||'hairD', oc=spec.oc||'#22c55e';
+  const isF=spec.body==='F', walk=frame||0;
+  const legSwing=(walk===1)?1:(walk===3)?-1:0;
+
+  // 大胖子：整体加宽 + 肚子
+  const fat = spec.fat ? 1 : 0;
+
+  // 腿
+  R(10+legSwing+ (fat?-1:0),33,5,12,'suitD');
+  R(17-legSwing+ (fat?1:0),33,5,12,'suitD');
+  R(9+legSwing,44,7,4,'shoe'); R(16-legSwing,44,7,4,'shoe');
+
+  // 躯干
+  if(spec.outfit==='dress'){ T(9,14,6,20,19,30,oc); T(6,20,3,26,30,40,oc); }
+  else if(fat){ T(4,24,3,28,19,36,oc); }
+  else { T(8,16,10,12,19,33,oc); }
+
+  // 手臂
+  const armSwing=(walk===1)?2:(walk===3)?-2:0;
+  if(fat){
+    R(2,20+armSwing,4,12,oc); R(26,20-armSwing,4,12,oc);
+    R(2,32+armSwing,4,3,skin); R(26,32-armSwing,4,3,skin);
+  }else{
+    R(5,20+armSwing,4,12,oc); R(23,20-armSwing,4,12,oc);
+    R(5,32+armSwing,4,3,skin); R(23,32-armSwing,4,3,skin);
+  }
+
+  // 脖子 + 头
+  R(14,16,4,4,skin);
+  E(16,10,6,7,skin);
+
+  // 头发
+  const hr=(x,y,w,h)=>{g.fillStyle=C(hc);g.fillRect(x,y,w,h);};
+  switch(spec.hair){
+    case 'short': hr(10,2,12,4); hr(9,4,2,6); hr(21,4,2,6); break;
+    case 'long':  hr(10,2,12,4); hr(8,4,2,14); hr(22,4,2,14); break;
+    case 'bun':   hr(10,3,12,3); hr(13,0,6,4); hr(9,4,2,4); hr(21,4,2,4); break;
+    case 'curly': hr(9,1,14,4); hr(8,3,2,6); hr(22,3,2,6); S(9,1,hc); S(14,0,hc); S(19,0,hc); S(23,2,hc); break;
+    case 'bald':  break;
+  }
+
+  // 五官
+  if(spec.acc==='shades'){ R(11,10,4,2,'#0a0a0a'); R(17,10,4,2,'#0a0a0a'); R(15,10,2,1,'hairD'); }
+  else { S(13,10,'eye'); S(19,10,'eye'); }
+  R(15,13,3,1,'hairD');
+  if(isF){ S(11,12,'#f7a8a0'); S(21,12,'#f7a8a0'); }
+
+  // 配饰
+  if(spec.outfit==='suit'){ R(15,19,2,1,'white'); T(15,2,14,4,20,24,'white'); T(15,1,15,2,24,30,spec.tie||'#2f6bff'); }
+  if(spec.acc==='crown'){ R(10,1,12,2,'#f5c211'); S(10,0,'#f5c211'); S(13,0,'#f5c211'); S(16,0,'#f5c211'); S(19,0,'#f5c211'); S(21,0,'#f5c211'); }
+  if(spec.acc==='camera'){ R(23,24,8,6,'#111'); R(25,25,4,4,'#444'); R(26,26,2,2,'#111'); }
+  if(spec.acc==='coat'){ // 脱外套：frame 0/1/2 逐步变窄
+    const cw=[22,16,10][Math.min(2, walk)];
+    R(16-cw/2,18,cw,22,'#6d28d9');
+    R(15,18,2,22,'#4c1d95');
+    if(walk<2){ R(23,26,6,5,'#8b5cf6'); } // 手上拿着外套
+  }
+
+  // 明暗（左上光）
+  const img=g.getImageData(0,0,32,48); const d=img.data;
+  const at=(x,y)=>{ if(x<0||y<0||x>=32||y>=48) return false; return d[(y*32+x)*4+3]>200; };
+  const copy=new Uint8ClampedArray(d);
+  for(let y=0;y<48;y++)for(let x=0;x<32;x++){
+    if(!at(x,y)) continue;
+    const i=(y*32+x)*4;
+    if(!at(x,y+1)||!at(x+1,y)){ d[i]=copy[i]*0.72; d[i+1]=copy[i+1]*0.72; d[i+2]=copy[i+2]*0.72; }
+    else if(!at(x,y-1)||!at(x-1,y)){ d[i]=Math.min(255,copy[i]*1.28+18); d[i+1]=Math.min(255,copy[i+1]*1.28+18); d[i+2]=Math.min(255,copy[i+2]*1.28+18); }
+  }
+  g.putImageData(img,0,0);
+
+  // 描边
+  const img2=g.getImageData(0,0,32,48); const d2=img2.data;
+  const at2=(x,y)=>{ if(x<0||y<0||x>=32||y>=48) return false; return d2[(y*32+x)*4+3]>200; };
+  g.fillStyle='#07080d';
+  for(let y=0;y<48;y++)for(let x=0;x<32;x++){
+    if(at2(x,y)) continue;
+    if(at2(x-1,y)||at2(x+1,y)||at2(x,y-1)||at2(x,y+1)) g.fillRect(x,y,1,1);
+  }
+}
+
+const cache={};
+function get(spec, frame){
+  const key=JSON.stringify(spec)+'#'+frame;
+  if(!cache[key]){
+    const t=document.createElement('canvas'); t.width=32; t.height=48;
+    const g=t.getContext('2d'); g.imageSmoothingEnabled=false;
+    drawCharG(g, spec, frame);
+    cache[key]=t;
+  }
+  return cache[key];
+}
+
+// ---------- 背景 ----------
+function drawBG(){
+  const g=ctx.createLinearGradient(0,0,0,cv.height);
+  g.addColorStop(0,'#1a0e18'); g.addColorStop(0.6,'#120a12'); g.addColorStop(1,'#0a0c14');
+  ctx.fillStyle=g; ctx.fillRect(0,0,cv.width,cv.height);
+
+  // 幕布
+  ctx.fillStyle='#5b1020';
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(100,0); ctx.quadraticCurveTo(66,300,100,600); ctx.lineTo(0,600); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(cv.width,0); ctx.lineTo(cv.width-100,0); ctx.quadraticCurveTo(cv.width-66,300,cv.width-100,600); ctx.lineTo(cv.width,600); ctx.closePath(); ctx.fill();
+
+  // 聚光灯
+  for(const x of [250, 510]){
+    const lg=ctx.createLinearGradient(x,0,x,600);
+    lg.addColorStop(0,'rgba(255,240,200,.15)'); lg.addColorStop(1,'rgba(255,240,200,0)');
+    ctx.fillStyle=lg;
+    ctx.beginPath(); ctx.moveTo(x-20,0); ctx.lineTo(x+20,0); ctx.lineTo(x+150,600); ctx.lineTo(x-150,600); ctx.closePath(); ctx.fill();
+  }
+  // 红毯
+  ctx.fillStyle='#a3172f';
+  ctx.beginPath(); ctx.ellipse(380, 600, 320, 80, 0, 0, Math.PI*2); ctx.fill();
+  // 舞台灯
+  for(let i=0;i<9;i++){
+    ctx.fillStyle = i%2 ? 'rgba(251,191,36,.55)' : 'rgba(56,189,248,.5)';
+    ctx.beginPath(); ctx.arc(100+i*68, 22, 4, 0, Math.PI*2); ctx.fill();
+  }
+  // 人群剪影
+  ctx.fillStyle='rgba(8,6,10,.95)';
+  for(let i=0;i<16;i++){
+    const x=24+i*46+(i%3)*6, y=670+(i%2)*8;
+    ctx.beginPath(); ctx.arc(x,y,11,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x,y+20,16,12,0,0,Math.PI*2); ctx.fill();
+  }
+}
+
+// ---------- 角色清单 ----------
+const MALES = [
+  {body:'M', hair:'short', hairC:'hairD', outfit:'tee', oc:'#16a34a'},
+  {body:'M', hair:'curly', hairC:'hairBk', outfit:'tee', oc:'#2563eb'},
+  {body:'M', hair:'bun',   hairC:'hairBr', outfit:'tee', oc:'#dc2626'},
+  {body:'M', hair:'bald',  hairC:'hairD', outfit:'tee', oc:'#ca8a04'},
+];
+const FEMALES = [
+  {body:'F', hair:'long',  hairC:'hairBr', outfit:'dress', oc:'#db2777'},
+  {body:'F', hair:'bun',   hairC:'hairD',  outfit:'dress', oc:'#7c3aed'},
+  {body:'F', hair:'curly', hairC:'hairBk', outfit:'dress', oc:'#0d9488'},
+  {body:'F', hair:'short', hairC:'hairBr', outfit:'dress', oc:'#ea580c'},
+];
+const GUARD_M = {body:'M', hair:'short', hairC:'hairD', outfit:'suit', oc:'suit', tie:'#2f6bff', acc:'shades'};
+const GUARD_F = {body:'F', hair:'long',  hairC:'hairBr', outfit:'suit', oc:'suit', tie:'#ff0044', acc:'shades'};
+const STAR    = {body:'M', hair:'curly', hairC:'hairBk', outfit:'dress', oc:'#8b5cf6', acc:'crown'};
+const FATTY   = {body:'M', hair:'bald',  hairC:'hairD', outfit:'tee',   oc:'#ca8a04', fat:true};
+const PAP     = {body:'M', hair:'short', hairC:'hairD', outfit:'tee',   oc:'#374151', acc:'camera'};
+const ANDRO   = {body:'F', hair:'short', hairC:'hairD', outfit:'coat',  oc:'#6d28d9', acc:'coat'};
+
+// ---------- 布局 ----------
+const S=2.5;
+function put(spec, x, y, frame){
+  const img=get(spec, frame);
+  ctx.drawImage(img, x, y, 32*S, 48*S);
+}
+function label(t, x, y){ ctx.fillStyle='#94a3b8'; ctx.font='12px monospace'; ctx.textAlign='center'; ctx.fillText(t,x,y); }
+
+function draw(){
+  drawBG();
+
+  // 4 男
+  label('4 男粉', 200, 80);
+  for(let i=0;i<4;i++) put(MALES[i], 70+i*78, 92, 0);
+
+  // 4 女
+  label('4 女粉', 200, 250);
+  for(let i=0;i<4;i++) put(FEMALES[i], 70+i*78, 262, 0);
+
+  // 保镖 + 明星
+  label('男保镖', 170, 420);
+  label('女保镖', 350, 420);
+  label('明星', 530, 420);
+  put(GUARD_M, 120, 432, 1);
+  put(GUARD_F, 300, 432, 1);
+  put(STAR,    480, 432, 0);
+
+  // 特殊角色
+  label('大胖子', 170, 600);
+  label('狗仔（上半区）', 340, 600);
+  label('厚衣服 · 脱外套', 530, 600);
+  put(FATTY, 120, 612, 0);
+  // 狗仔放上半区：直接画在上方
+  put(PAP, 300, 560, 0);
+  // 三帧脱外套
+  put(ANDRO, 470, 612, 0);
+  put(ANDRO, 540, 612, 1);
+  put(ANDRO, 610, 612, 2);
+}
+
+draw();
+</script>
+</body>
+</html>

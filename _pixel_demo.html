@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pixel Art Demo</title>
+<style>
+  body{margin:0;background:#0f1220;color:#e5e7eb;font-family:monospace;display:flex;flex-direction:column;align-items:center;padding:16px}
+  h2{font-size:16px;margin:4px 0 12px;font-weight:normal;color:#94a3b8}
+  canvas{image-rendering:pixelated;background:#1a1f33;border-radius:12px;margin-bottom:14px}
+  .palette{display:flex;gap:6px;margin-bottom:12px}
+  .sw{width:26px;height:26px;border-radius:6px;border:1px solid #334155}
+  .row{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
+  .cell{text-align:center;font-size:11px;color:#64748b}
+</style>
+</head>
+<body>
+<h2>PIXEL ART · 16×24 网格 · 8× 放大 · 6 色调色板</h2>
+<div class="palette" id="pal"></div>
+<canvas id="cv" width="520" height="300"></canvas>
+<div class="row">
+  <div class="cell">男保镖 · 待机</div>
+  <div class="cell">女保镖 · 待机</div>
+  <div class="cell">粉丝 · 走</div>
+  <div class="cell">明星 · 挥手</div>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+const PAL = {
+  '.': null,
+  'H': '#2b2b2b',  // 头发
+  'S': '#f2c9a0',  // 皮肤
+  'K': '#111111',  // 黑（墨镜/鞋）
+  'B': '#1b1b1b',  // 西装
+  'W': '#ffffff',  // 衬衫
+  'T': '#2f6bff',  // 领带
+  'R': '#ff0044',  // 红（女装/领带）
+  'Y': '#f5c211',  // 黄（皇冠）
+  'G': '#22c55e',  // 绿
+  'P': '#8b5cf6',  // 紫
+};
+
+// 男保镖（西装+墨镜）
+const GUARD_M = [
+"................",
+".....HHHHHH.....",
+"....HHHHHHHH....",
+"....HSSSSSSH....",
+"....HSKSSKSH....",
+"....HSSSSSSH....",
+".....SSSSSS.....",
+"....BBBBBBBB....",
+"...BBWWWWWWBB...",
+"...BBWWTTWWBB...",
+"...BBWWTTWWBB...",
+"...BBWWWWWWBB...",
+"...BBBBBBBBBB...",
+"...BBBBBBBBBB...",
+"....BBBBBBBB....",
+".....BB..BB.....",
+".....BB..BB.....",
+".....BB..BB.....",
+".....BB..BB.....",
+".....BB..BB.....",
+"....KKK..KKK....",
+"....KKK..KKK....",
+"................",
+"................",
+];
+
+// 女保镖（西装+墨镜+长发）
+const GUARD_F = [
+"....HHHHHHHH....",
+"...HHHHHHHHHH...",
+"...HHHSSSSHHH...",
+"...HHHSKSSKSH...",
+"....HHSSSSHH....",
+"....HSSSSSSH....",
+".....SSSSSS.....",
+"....BBBBBBBB....",
+"...BBWWWWWWBB...",
+"...BBWWRRWWBB...",
+"...BBWWRRWWBB...",
+"...BBWWWWWWBB...",
+"...BBBBBBBBBB...",
+"...BBBBBBBBBB...",
+"....BBBBBBBB....",
+".....BB..BB.....",
+".....BB..BB.....",
+".....BB..BB.....",
+".....BB..BB.....",
+".....BB..BB.....",
+"....KKK..KKK....",
+"....KKK..KKK....",
+"................",
+"................",
+];
+
+// 粉丝（举手欢呼）
+const FAN = [
+"................",
+".....HHHHHH.....",
+"....HHHHHHHH....",
+"....HSSSSSSH....",
+"....HSKSSKSH....",
+"....HSSSSSSH....",
+".....SSSSSS.....",
+"..S..BBBBBB..S..",
+".SS.BBGGGGBB.SS.",
+".SS.BBGGGGBB.SS.",
+"..S.BBGGGGBB.S..",
+"....BBBBBBBB....",
+"....BBBBBBBB....",
+"....BBBBBBBB....",
+"....BBBBBBBB....",
+".....BB..BB.....",
+".....BB..BB.....",
+".....BB..BB.....",
+".....BB..BB.....",
+".....BB..BB.....",
+"....KKK..KKK....",
+"....KKK..KKK....",
+"................",
+"................",
+];
+
+// 明星（皇冠+墨镜）
+const STAR = [
+".....Y..Y..Y....",
+".....YYYYYY.....",
+"....HHHHHHHH....",
+"....HSSSSSSH....",
+"....HSKSSKSH....",
+"....HSSSSSSH....",
+".....SSSSSS.....",
+"....PPPPPPPP....",
+"...PPWWWWWWPP...",
+"...PPWWYYWWPP...",
+"...PPWWYYWWPP...",
+"...PPWWWWWWPP...",
+"...PPPPPPPPPP...",
+"...PPPPPPPPPP...",
+"....PPPPPPPP....",
+".....PP..PP.....",
+".....PP..PP.....",
+".....PP..PP.....",
+".....PP..PP.....",
+".....PP..PP.....",
+"....KKK..KKK....",
+"....KKK..KKK....",
+"................",
+"................",
+];
+
+function drawSprite(grid, x, y, s) {
+  for (let r = 0; r < grid.length; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      const ch = grid[r][c];
+      const col = PAL[ch];
+      if (!col) continue;
+      ctx.fillStyle = col;
+      ctx.fillRect(x + c * s, y + r * s, s, s);
+    }
+  }
+}
+
+function drawFrame(grid, x, y, s, opts) {
+  // 待机：上下浮动 + 轻微压扁
+  const bob = Math.sin(opts.t * 4) * (opts.bob || 2);
+  ctx.save();
+  ctx.translate(x, y + bob);
+  if (opts.squash) {
+    ctx.translate(0, 24 * s);
+    ctx.scale(1, opts.squash);
+    ctx.translate(0, -24 * s);
+  }
+  drawSprite(grid, 0, 0, s);
+  ctx.restore();
+}
+
+// 调色板展示
+const palEl = document.getElementById('pal');
+for (const k in PAL) {
+  if (!PAL[k]) continue;
+  const d = document.createElement('div');
+  d.className = 'sw';
+  d.style.background = PAL[k];
+  palEl.appendChild(d);
+}
+
+const S = 8;
+let t = 0;
+let walkPhase = 0;
+function loop() {
+  t += 0.016;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+
+  // 背景网格
+  ctx.strokeStyle = 'rgba(255,255,255,.04)';
+  for (let x = 0; x < cv.width; x += S) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cv.height); ctx.stroke(); }
+  for (let y = 0; y < cv.height; y += S) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cv.width, y); ctx.stroke(); }
+
+  // 男保镖（待机：呼吸）
+  drawFrame(GUARD_M, 30, 40, S, { t, bob: 2, squash: 1 + Math.sin(t * 4) * 0.015 });
+
+  // 女保镖（待机，反向相位）
+  drawFrame(GUARD_F, 170, 40, S, { t: t + 1.5, bob: 2 });
+
+  // 粉丝（走路：左右脚交替）
+  walkPhase = Math.sin(t * 8);
+  const fanBob = Math.abs(Math.sin(t * 8)) * 3;
+  ctx.save();
+  ctx.translate(310, 40 - fanBob);
+  drawSprite(FAN, 0, 0, S);
+  ctx.restore();
+
+  // 明星（挥手：皇冠 + 上下浮动 + 手臂摆动）
+  drawFrame(STAR, 450, 40, S, { t, bob: 3 });
+
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
